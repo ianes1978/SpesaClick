@@ -76,7 +76,7 @@ Senza login l'app funziona lo stesso, con i prezzi del listino online generico.
 Queste parti sono scritte seguendo il comportamento del sito, ma **non sono
 state provate con un account DupliClick vero**:
 
-* **Login / lettura della sessione**: i nomi delle chiavi (`X-Ebsn-Session`,
+* **Login / lettura della sessione** (usa `flutter_inappwebview` 6.2 beta: la 6.1.5 non compila con l'Android Gradle Plugin 9): i nomi delle chiavi (`X-Ebsn-Session`,
   `X-Ebsn-Account`, `JSESSIONID`) e l'invio di `X-Ebsn-Account` come header.
   Nei build di debug l'app scrive nel log quali valori ha trovato e il corpo
   delle risposte (`flutter run`, poi guarda la console).
