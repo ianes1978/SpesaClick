@@ -5,12 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/api_exceptions.dart';
 import '../data/database.dart';
-import '../data/dupliclick_api.dart';
+import '../data/ebsn_api.dart';
+import '../data/ebsn_config.dart';
 import '../data/product_repository.dart';
 import '../data/session_storage.dart';
 import '../data/store_repository.dart';
 import '../domain/cart_item.dart';
 import '../domain/cart_math.dart';
+import '../domain/chain.dart';
 import '../domain/ean.dart';
 import '../domain/price_quote.dart';
 import '../domain/store.dart';
@@ -25,29 +27,58 @@ final dbProvider = Provider<AppDatabase>((ref) {
 
 final sessionStorageProvider = Provider<SessionStorage>((_) => SessionStorage());
 
-final apiProvider = Provider<DupliclickApi>((ref) {
-  return DupliclickApi(
+/// Un client per catena (ognuno con il suo rate limit).
+final apiProvider = Provider.family<EbsnApi, Chain>((ref, chain) {
+  if (chain == Chain.coop) return EbsnApi(EbsnConfig.coop);
+  return EbsnApi(
+    EbsnConfig.poli,
     onSessionChanged: (s) => ref.read(sessionStorageProvider).save(s),
     onSessionExpired: () =>
         Future.microtask(() => ref.read(sessionProvider.notifier).markExpired()),
   );
 });
 
-final productRepoProvider = Provider<ProductRepository>((ref) {
+final productRepoProvider =
+    Provider.family<ProductRepository, Chain>((ref, chain) {
   return ProductRepository(
-    api: ref.watch(apiProvider),
+    api: ref.watch(apiProvider(chain)),
     db: ref.watch(dbProvider),
-    currentStoreId: () => ref.read(sessionProvider).storeId,
+    currentStoreId: chain == Chain.poli
+        ? () => ref.read(sessionProvider).storeId
+        : () => null,
   );
 });
 
 final storeRepoProvider = Provider<StoreRepository>((ref) {
   return StoreRepository(
-    api: ref.watch(apiProvider),
+    api: ref.watch(apiProvider(Chain.poli)),
     db: ref.watch(dbProvider),
-    products: ref.watch(productRepoProvider),
+    products: ref.watch(productRepoProvider(Chain.poli)),
   );
 });
+
+/// Catena in cui si sta facendo la spesa (scanner e catalogo).
+class ActiveChainNotifier extends Notifier<Chain> {
+  static const _key = 'active_chain';
+
+  @override
+  Chain build() {
+    Future.microtask(() async {
+      final v = await ref.read(dbProvider).getValue(_key);
+      final c = Chain.values.where((c) => c.name == v).firstOrNull;
+      if (c != null) state = c;
+    });
+    return Chain.poli;
+  }
+
+  void set(Chain c) {
+    state = c;
+    ref.read(dbProvider).setValue(_key, c.name);
+  }
+}
+
+final activeChainProvider =
+    NotifierProvider<ActiveChainNotifier, Chain>(ActiveChainNotifier.new);
 
 // ---- sessione DupliClick ----------------------------------------------------
 
@@ -82,7 +113,7 @@ class SessionNotifier extends Notifier<SessionState> {
     return const SessionState(SessionStatus.checking);
   }
 
-  DupliclickApi get _api => ref.read(apiProvider);
+  EbsnApi get _api => ref.read(apiProvider(Chain.poli));
   SessionStorage get _storage => ref.read(sessionStorageProvider);
 
   Future<void> _restore() async {
@@ -179,7 +210,7 @@ class CartNotifier extends Notifier<List<CartItem>> {
   /// Aggiunge un prodotto trovato; se già presente incrementa la quantità.
   /// Restituisce la riga aggiornata.
   CartItem add(LookupResult r, {ScaleLabel? label}) {
-    final id = label?.raw ?? r.product.barcode;
+    final id = label?.raw ?? '${r.product.chain.name}:${r.product.barcode}';
     final idx = state.indexWhere((i) => i.id == id);
     if (idx >= 0) {
       final updated = state[idx].copyWith(quantity: state[idx].quantity + 1);
@@ -198,6 +229,7 @@ class CartNotifier extends Notifier<List<CartItem>> {
           source: PriceSource.label,
           readAt: DateTime.now(),
           storeId: r.quote.storeId,
+          chain: r.quote.chain,
         ),
         labelTotal: label.total,
         weightKg: (ppk != null && ppk > 0)
@@ -216,6 +248,9 @@ class CartNotifier extends Notifier<List<CartItem>> {
     _set([item, ...state]);
     return item;
   }
+
+  /// Riga inserita a mano (es. articolo a peso non riconosciuto).
+  void addManual(CartItem item) => _set([item, ...state]);
 
   void setQuantity(String id, int q) {
     if (q <= 0) return remove(id);
@@ -260,15 +295,70 @@ final cartProvider =
 final cartTotalsProvider =
     Provider<CartTotals>((ref) => cartTotals(ref.watch(cartProvider)));
 
-/// Prezzi in cache dell'altro negozio per gli articoli nel carrello.
+/// Prezzi in cache dell'altro negozio Poli per gli articoli Poli nel carrello.
 final otherQuotesProvider =
     FutureProvider<Map<String, PriceQuote>>((ref) async {
   final items = ref.watch(cartProvider);
   final other = ref.watch(compareStoreProvider);
-  return ref
-      .read(storeRepoProvider)
-      .cachedQuotes(other.addressId, items.map((i) => i.product.barcode));
+  return ref.read(storeRepoProvider).cachedQuotes(
+      other.addressId,
+      items
+          .where((i) => i.product.chain == Chain.poli)
+          .map((i) => i.product.barcode));
 });
+
+/// Prezzi dell'altra catena (Coop per le righe Poli e viceversa), per
+/// `CartItem.id`. Un valore null significa "non a listino". Le richieste
+/// partono una alla volta, con cache di 6 ore.
+class CrossChainNotifier extends Notifier<Map<String, PriceQuote?>> {
+  final _failed = <String>{};
+  bool _running = false;
+
+  @override
+  Map<String, PriceQuote?> build() {
+    ref.listen(cartProvider, (_, _) => _fill());
+    Future.microtask(_fill);
+    return const {};
+  }
+
+  /// Riprova anche le righe andate in errore.
+  void refresh() {
+    _failed.clear();
+    _fill();
+  }
+
+  Future<void> _fill() async {
+    if (_running) return;
+    _running = true;
+    try {
+      while (true) {
+        final todo = ref
+            .read(cartProvider)
+            .where((i) =>
+                i.product.productId > 0 &&
+                !state.containsKey(i.id) &&
+                !_failed.contains(i.id))
+            .firstOrNull;
+        if (todo == null) break;
+        final other = todo.product.chain.other;
+        try {
+          final r =
+              await ref.read(productRepoProvider(other)).lookup(todo.product.barcode);
+          state = {...state, todo.id: r?.quote};
+        } on ApiException catch (e) {
+          debugPrint('Prezzo ${other.serviceName} per ${todo.product.barcode}: $e');
+          _failed.add(todo.id);
+        }
+      }
+    } finally {
+      _running = false;
+    }
+  }
+}
+
+final crossChainProvider =
+    NotifierProvider<CrossChainNotifier, Map<String, PriceQuote?>>(
+        CrossChainNotifier.new);
 
 // ---- listino offline -------------------------------------------------------
 
@@ -279,8 +369,15 @@ class OfflineInfo {
   final DateTime? downloadedAt;
 }
 
-final offlineInfoProvider = FutureProvider<OfflineInfo>((ref) async {
+final offlineInfoProvider =
+    FutureProvider.family<OfflineInfo, Chain>((ref, chain) async {
   final db = ref.watch(dbProvider);
-  final at = await db.getValue('catalog_downloaded_at');
-  return OfflineInfo(await db.catalogCount(), DateTime.tryParse(at ?? ''));
+  final repo = ref.watch(productRepoProvider(chain));
+  final at = await db.getValue(repo.downloadedAtKey);
+  return OfflineInfo(
+      await db.catalogCount(chain), DateTime.tryParse(at ?? ''));
 });
+
+/// Punti di ritiro Click&Coop (i prezzi non dipendono dal punto scelto).
+final coopPickupProvider = FutureProvider<List<Store>>(
+    (ref) => ref.watch(apiProvider(Chain.coop)).deliveryServiceList());

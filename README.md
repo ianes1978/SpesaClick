@@ -2,9 +2,11 @@
 
 App Flutter (Android + iOS) **per uso personale** che simula il self-scanning
 dei supermercati di Trento: scansioni l'EAN di un prodotto e l'app chiede
-subito alle API di DupliClick il prezzo del punto vendita scelto.
+subito il prezzo a **DupliClick** (Poli, prezzo del punto vendita scelto) o a
+**Click&Coop** (Coop Trentino, listino online), e lo confronta con l'altra catena.
 
-> Progetto personale e **non ufficiale**, non collegato a Poli né a DupliClick.
+> Progetto personale e **non ufficiale**, non collegato a Poli, DupliClick,
+> Coop Trentino o Click&Coop.
 > Usa API non documentate che possono cambiare senza preavviso: i prezzi sono
 > indicativi, fa fede lo scontrino.
 
@@ -16,6 +18,7 @@ subito alle API di DupliClick il prezzo del punto vendita scelto.
 | **Etichette bilancia** | EAN-13 che inizia con `2`: `2` + articolo (6) + centesimi (5) + controllo. Il prodotto si cerca con i primi 7 caratteri + `000000`; il prezzo stampato è il totale della riga, peso = totale / prezzo al kg. |
 | **Righe del carrello** | Foto, nome, marca, formato, prezzo unitario, badge della fonte (*prezzo PV* / *online* / *etichetta* / *offline · data*), quantità +/−, prezzo pieno barrato se in promo, bollini −30% / −50%, dialogo peso ↔ totale per il peso variabile. Scorri a sinistra per eliminare una riga. |
 | **Riepilogo** | Totale, pezzi, risparmio (bollini + promo), totale nell'altro negozio e differenza. |
+| **Due catene** | In alto scegli **Poli** o **Coop**: scanner e catalogo usano quella catena. Ogni riga mostra anche il prezzo dell'altra catena (in verde se qui costa meno, in rosso se costa di più) e il riepilogo dice "da Coop spenderesti X € in meno" / "qui risparmi X €". |
 | **Cambio negozio e confronto** | Selettore del punto vendita in alto e confronto IperPoli ↔ Gardolo (vedi avvertenze sotto). |
 | **Catalogo** | Ricerca istantanea (debounce di 300 ms) con paginazione infinita, filtri per categoria e la sezione "In evidenza" con prodotti trentini. Un tocco aggiunge il prodotto al carrello. |
 | **Offline** | "Scarica listino" salva l'intero listino (8.400+ prodotti, una richiesta ogni 350 ms). Senza rete o senza sessione lo scanner usa questo listino. |
@@ -57,6 +60,27 @@ Per installarlo, abilita sul telefono "Installa app sconosciute" per il browser
 o per il file manager. L'APK è firmato con la chiave di debug: va bene per uso
 personale, non per il Play Store.
 
+## Click&Coop (Coop Trentino)
+
+* Nessun login: tutti gli endpoint usati sono pubblici.
+* I prezzi **non dipendono dal punto di ritiro**: c'è un unico listino online
+  (`priceListName` = "Listino clickcoop", o "… - Localismi" per una quarantina
+  di prodotti locali). L'app lo dice: *"Prezzi del listino online Click&Coop,
+  in negozio possono differire"*.
+* Il server sbaglia a intermittenza (circa 1 richiesta su 10 risponde
+  `status: 1` senza dati): ogni richiesta viene ripetuta fino a 5 volte con
+  attesa crescente (0,5 s, 1,5 s, 2,5 s…), con almeno 450 ms tra due richieste.
+* Ricerca testuale e reparti (`/category`). Il listino offline si scarica
+  reparto per reparto (circa 11.800 prodotti), saltando le raccolte
+  Promozioni / Cashback / Sempre giù, 80 per pagina con ripiego su 40.
+* Sfusi: hanno codici interni brevi (es. `2877992`), a volte condivisi da più
+  articoli; il listino offline usa quindi `productId` come chiave. Quando
+  aggiungi uno sfuso l'app chiede peso o totale.
+* Etichette della bilancia Coop **non verificate**: il prezzo non viene
+  decodificato dal codice. Se un codice che inizia con 2 non è a listino,
+  l'app chiede il totale (o peso e prezzo al kg) e aggiunge una riga
+  "Articolo a peso".
+
 ## Collegare DupliClick
 
 1. Vai in **Altro → Collega DupliClick** (o tocca "collega" in alto nel carrello).
@@ -92,8 +116,8 @@ state provate con un account DupliClick vero**:
   verificato con un'etichetta vera.
 
 Se un nome di campo è diverso, la correzione va fatta solo in
-`lib/data/dupliclick_api.dart` (e nei metodi `fromApi` dei modelli in
-`lib/domain/`).
+`lib/data/ebsn_api.dart` / `lib/data/ebsn_config.dart` (e nei metodi
+`fromApi` dei modelli in `lib/domain/`).
 
 ### Confronto tra negozi: attenzione
 
@@ -106,8 +130,9 @@ già tutti in cache, il negozio non viene cambiato.
 
 ## Uso responsabile delle API
 
-* Un solo client HTTP con al massimo una richiesta ogni 300 ms, mai in
-  parallelo, timeout di 20 s e un solo nuovo tentativo sugli errori di rete.
+* Un client HTTP per catena, richieste mai in parallelo: DupliClick una ogni
+  300 ms con un solo nuovo tentativo sugli errori di rete; Click&Coop una
+  ogni 450 ms con fino a 5 nuovi tentativi. Timeout di 20 s.
 * Una chiamata per scansione. I prezzi stanno in cache per (negozio, EAN)
   per 6 ore.
 * Il download del listino fa una richiesta ogni 350 ms e si può interrompere.
@@ -116,19 +141,25 @@ già tutti in cache, il negozio non viene cambiato.
 
 ```
 lib/
-  data/      DupliclickApi (Dio + interceptor), repository, database drift,
+  data/      EbsnApi + EbsnConfig per catena (Dio + interceptor), repository,
+             database drift,
              storage sicuro della sessione, export CSV/JSON
   domain/    Product, CartItem, Store, PriceQuote, EAN/etichette, calcolo totali
   ui/        schermate (carrello, scanner, catalogo, login, tessera, altro),
              provider Riverpod
-test/        parsing di /products (fixture reale), client API con adapter finto,
+test/        parsing di /products (fixture reali DupliClick e Click&Coop),
+             client API con adapter finto (header, tentativi, 419),
              totali (bollini, promo, peso variabile, etichetta), EAN-13/UPC
 ```
 
 Dettagli tecnici dell'API:
 
-* Base URL `https://www.dupliclick.it/ebsn/api`. Gli header `X-Ebsn-Client` e
-  `X-Ebsn-Client-Redirect` valgono `production`.
+* Entrambe le catene usano la piattaforma "ebsn" di Digitelematica:
+  `https://www.dupliclick.it/ebsn/api` e `https://www.clickcoop.it/ebsn/api`.
+  `X-Ebsn-Client: production` sempre; `X-Ebsn-Client-Redirect` solo per
+  DupliClick, `User-Agent` dichiarato per Click&Coop.
+* Prezzi normalizzati: `priceDisplay` è il prezzo di vendita; il prezzo pieno
+  è `priceStandardDisplay` (DupliClick) o `price` (Click&Coop) se maggiore.
 * Le risposte hanno `Content-Type: text/html` ma il corpo è JSON. Dio usa
   `ResponseType.plain` e poi `jsonDecode`.
 * Per cercare un codice a barre si usa `barcode=<EAN>`, non `q=<EAN>`.

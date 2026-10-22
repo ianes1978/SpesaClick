@@ -4,23 +4,28 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
 import '../domain/cart_item.dart';
+import '../domain/chain.dart';
 import '../domain/product.dart';
 
 part 'database.g.dart';
 
-/// Prezzi letti per (negozio, EAN). `storeKey` = id negozio o "online".
+/// Prezzi letti per (catena, negozio, EAN). `storeKey` = id negozio o "online".
 class PriceCache extends Table {
+  TextColumn get chain => text()();
   TextColumn get storeKey => text()();
   TextColumn get barcode => text()();
   TextColumn get productJson => text()();
   DateTimeColumn get readAt => dateTime()();
 
   @override
-  Set<Column> get primaryKey => {storeKey, barcode};
+  Set<Column> get primaryKey => {chain, storeKey, barcode};
 }
 
-/// Listino completo scaricato per l'uso offline.
+/// Listino completo scaricato per l'uso offline. La chiave è `productId`:
+/// su Click&Coop più sfusi condividono lo stesso codice interno.
 class Catalog extends Table {
+  TextColumn get chain => text()();
+  IntColumn get productId => integer()();
   TextColumn get barcode => text()();
   TextColumn get name => text()();
   TextColumn get brand => text().nullable()();
@@ -29,7 +34,7 @@ class Catalog extends Table {
   DateTimeColumn get downloadedAt => dateTime()();
 
   @override
-  Set<Column> get primaryKey => {barcode};
+  Set<Column> get primaryKey => {chain, productId};
 }
 
 class CartLines extends Table {
@@ -61,23 +66,41 @@ class AppDatabase extends _$AppDatabase {
       : super(executor ?? driftDatabase(name: 'spesa_trento'));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            // Cache e listino offline: si possono riscaricare.
+            await m.deleteTable('price_cache');
+            await m.deleteTable('catalog');
+            await m.createTable(priceCache);
+            await m.createTable(catalog);
+          }
+        },
+      );
+
+  Product _decode(String json) =>
+      Product.fromJson(jsonDecode(json) as Map<String, dynamic>);
 
   // ---- cache prezzi ------------------------------------------------------
 
-  Future<CachedPrice?> cachedPrice(String storeKey, String barcode) async {
+  Future<CachedPrice?> cachedPrice(
+      Chain chain, String storeKey, String barcode) async {
     final row = await (select(priceCache)
-          ..where((t) => t.storeKey.equals(storeKey) & t.barcode.equals(barcode)))
+          ..where((t) =>
+              t.chain.equals(chain.name) &
+              t.storeKey.equals(storeKey) &
+              t.barcode.equals(barcode)))
         .getSingleOrNull();
     if (row == null) return null;
-    return CachedPrice(
-      Product.fromJson(jsonDecode(row.productJson) as Map<String, dynamic>),
-      row.readAt,
-    );
+    return CachedPrice(_decode(row.productJson), row.readAt);
   }
 
   Future<void> putPrice(String storeKey, Product p, DateTime readAt) =>
       into(priceCache).insertOnConflictUpdate(PriceCacheCompanion.insert(
+        chain: p.chain.name,
         storeKey: storeKey,
         barcode: p.barcode,
         productJson: jsonEncode(p.toJson()),
@@ -91,6 +114,8 @@ class AppDatabase extends _$AppDatabase {
         b.insertAllOnConflictUpdate(
           catalog,
           products.map((p) => CatalogCompanion.insert(
+                chain: p.chain.name,
+                productId: p.productId,
                 barcode: p.barcode,
                 name: p.name.toLowerCase(),
                 brand: Value(p.brand?.toLowerCase()),
@@ -101,28 +126,27 @@ class AppDatabase extends _$AppDatabase {
         );
       });
 
-  Future<void> clearCatalog() => delete(catalog).go();
+  Future<void> clearCatalog(Chain chain) =>
+      (delete(catalog)..where((t) => t.chain.equals(chain.name))).go();
 
   Future<({Product product, DateTime downloadedAt})?> catalogProduct(
-      String barcode) async {
-    final row = await (select(catalog)..where((t) => t.barcode.equals(barcode)))
+      Chain chain, String barcode) async {
+    final row = await (select(catalog)
+          ..where((t) => t.chain.equals(chain.name) & t.barcode.equals(barcode))
+          ..limit(1))
         .getSingleOrNull();
     if (row == null) return null;
-    return (
-      product: Product.fromJson(
-          jsonDecode(row.productJson) as Map<String, dynamic>),
-      downloadedAt: row.downloadedAt,
-    );
+    return (product: _decode(row.productJson), downloadedAt: row.downloadedAt);
   }
 
-  Future<List<Product>> searchCatalog(String q,
+  Future<List<Product>> searchCatalog(Chain chain, String q,
       {int limit = 24, int offset = 0}) async {
     final words = q
         .toLowerCase()
         .split(RegExp(r'\s+'))
         .where((w) => w.isNotEmpty)
         .toList();
-    final query = select(catalog);
+    final query = select(catalog)..where((t) => t.chain.equals(chain.name));
     for (final w in words) {
       query.where((t) => t.name.contains(w) | t.brand.contains(w));
     }
@@ -130,25 +154,23 @@ class AppDatabase extends _$AppDatabase {
       ..orderBy([(t) => OrderingTerm.asc(t.name)])
       ..limit(limit, offset: offset);
     final rows = await query.get();
-    return rows
-        .map((r) =>
-            Product.fromJson(jsonDecode(r.productJson) as Map<String, dynamic>))
-        .toList();
+    return rows.map((r) => _decode(r.productJson)).toList();
   }
 
-  Future<List<Product>> allCatalog() async {
-    final rows = await (select(catalog)
-          ..orderBy([(t) => OrderingTerm.asc(t.name)]))
-        .get();
-    return rows
-        .map((r) =>
-            Product.fromJson(jsonDecode(r.productJson) as Map<String, dynamic>))
-        .toList();
+  Future<List<Product>> allCatalog([Chain? chain]) async {
+    final q = select(catalog)
+      ..orderBy([(t) => OrderingTerm.asc(t.chain), (t) => OrderingTerm.asc(t.name)]);
+    if (chain != null) q.where((t) => t.chain.equals(chain.name));
+    final rows = await q.get();
+    return rows.map((r) => _decode(r.productJson)).toList();
   }
 
-  Future<int> catalogCount() async {
-    final c = catalog.barcode.count();
-    final row = await (selectOnly(catalog)..addColumns([c])).getSingle();
+  Future<int> catalogCount(Chain chain) async {
+    final c = catalog.productId.count();
+    final row = await (selectOnly(catalog)
+          ..addColumns([c])
+          ..where(catalog.chain.equals(chain.name)))
+        .getSingle();
     return row.read(c) ?? 0;
   }
 

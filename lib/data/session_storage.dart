@@ -1,6 +1,6 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import 'dupliclick_api.dart';
+import 'ebsn_api.dart';
 
 /// Conserva la sessione DupliClick nello storage sicuro del sistema.
 class SessionStorage {

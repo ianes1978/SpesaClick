@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/cart_item.dart';
 import '../../domain/cart_math.dart';
+import '../../domain/price_quote.dart';
 import '../providers.dart';
 import '../widgets/format.dart';
 import '../widgets/product_image.dart';
@@ -18,6 +19,7 @@ class CartTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cart = ref.read(cartProvider.notifier);
     final t = lineTotals(item);
+    final cross = ref.watch(crossChainProvider);
     final p = item.product;
     final theme = Theme.of(context);
     final q = item.quote;
@@ -76,6 +78,8 @@ class CartTile extends ConsumerWidget {
                                 color: theme.colorScheme.error)),
                     ],
                   ),
+                  if (cross.containsKey(item.id))
+                    _CrossPrice(item, cross[item.id], t.net),
                   const SizedBox(height: 4),
                   Row(
                     children: [
@@ -165,6 +169,42 @@ class _Sticker extends ConsumerWidget {
                 fontWeight: FontWeight.bold,
                 fontSize: 12)),
       ),
+    );
+  }
+}
+
+/// Prezzo della stessa riga nell'altra catena.
+class _CrossPrice extends StatelessWidget {
+  const _CrossPrice(this.item, this.quote, this.hereNet);
+  final CartItem item;
+  final PriceQuote? quote;
+  final double hereNet;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final name = item.product.chain.other.label;
+    final q = quote;
+    if (q == null) {
+      return Text('$name: non a listino',
+          style: theme.textTheme.bodySmall
+              ?.copyWith(color: theme.colorScheme.outline));
+    }
+    final there = lineTotals(item, quote: q).net;
+    final diff = round2(there - hereNet);
+    final color = diff < 0
+        ? theme.colorScheme.error
+        : diff > 0
+            ? theme.colorScheme.primary
+            : theme.colorScheme.outline;
+    final unit = item.isVariableWeight && q.pricePerKg != null
+        ? '${eur(q.pricePerKg!)}/${item.product.weightUnit ?? 'kg'}'
+        : eur(q.price);
+    final sign = diff > 0 ? '+' : '';
+    return Text(
+      '$name: $unit${q.isPromo ? ' (promo)' : ''}'
+      '${diff != 0 ? ' · $sign${eur(diff)}' : ''}',
+      style: theme.textTheme.bodySmall?.copyWith(color: color),
     );
   }
 }

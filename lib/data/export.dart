@@ -22,11 +22,12 @@ String toCsv(List<String> header, Iterable<List<Object?>> rows) {
 
 String cartToCsv(List<CartItem> items) => toCsv(
       [
-        'ean', 'nome', 'marca', 'formato', 'quantita', 'peso_kg',
+        'catena', 'ean', 'nome', 'marca', 'formato', 'quantita', 'peso_kg',
         'prezzo_unitario', 'prezzo_kg', 'bollino_%', 'totale', 'fonte',
         'letto_il',
       ],
       items.map((i) => [
+            i.product.chain.name,
             i.product.barcode,
             i.product.name,
             i.product.brand,
@@ -51,10 +52,13 @@ String cartToJson(List<CartItem> items) =>
 
 String productsToCsv(List<Product> products) => toCsv(
       [
-        'ean', 'nome', 'marca', 'formato', 'tipologia', 'prezzo',
-        'prezzo_pieno', 'prezzo_kg', 'unita', 'categoria',
+        'catena', 'product_id', 'ean', 'nome', 'marca', 'formato',
+        'tipologia', 'prezzo', 'prezzo_pieno', 'prezzo_kg', 'unita',
+        'categoria',
       ],
       products.map((p) => [
+            p.chain.name,
+            p.productId,
             p.barcode,
             p.name,
             p.brand,

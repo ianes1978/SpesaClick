@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../domain/chain.dart';
 import '../../domain/price_quote.dart';
 import 'format.dart';
 
@@ -17,9 +18,10 @@ class SourceBadge extends StatelessWidget {
       PriceSource.label => (cs.tertiaryContainer, cs.onTertiaryContainer),
       PriceSource.offline => (cs.surfaceContainerHighest, cs.onSurfaceVariant),
     };
-    final text = quote.source == PriceSource.offline
+    var text = quote.source == PriceSource.offline
         ? 'offline · ${shortDate(quote.readAt)}'
         : quote.source.badge;
+    if (quote.chain == Chain.coop) text = 'Coop · $text';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration:

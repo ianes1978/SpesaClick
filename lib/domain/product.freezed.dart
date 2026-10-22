@@ -17,7 +17,8 @@ T _$identity<T>(T value) => value;
 mixin _$Product {
 
  int get productId; String get barcode; String get name; String? get brand; String? get packageDescr;/// "Pezzo" | "Sfuso" | "Confezione".
- String? get tipologia; double get price; double? get listPrice; double? get pricePerKg; String? get weightUnit; String? get category; String? get thumbUrl; String? get imageUrl;
+ String? get tipologia; double get price; double? get listPrice; double? get pricePerKg; String? get weightUnit; String? get category; String? get thumbUrl; String? get imageUrl; Chain get chain;/// Listino applicato (`priceListName`, solo Click&Coop).
+ String? get priceListName;
 /// Create a copy of Product
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -31,20 +32,20 @@ $ProductCopyWith<Product> get copyWith => _$ProductCopyWithImpl<Product>(this as
 @override
 bool operator ==(Object other) {
   final _this = this as Product;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Product&&(identical(other.productId, _this.productId) || other.productId == _this.productId)&&(identical(other.barcode, _this.barcode) || other.barcode == _this.barcode)&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.brand, _this.brand) || other.brand == _this.brand)&&(identical(other.packageDescr, _this.packageDescr) || other.packageDescr == _this.packageDescr)&&(identical(other.tipologia, _this.tipologia) || other.tipologia == _this.tipologia)&&(identical(other.price, _this.price) || other.price == _this.price)&&(identical(other.listPrice, _this.listPrice) || other.listPrice == _this.listPrice)&&(identical(other.pricePerKg, _this.pricePerKg) || other.pricePerKg == _this.pricePerKg)&&(identical(other.weightUnit, _this.weightUnit) || other.weightUnit == _this.weightUnit)&&(identical(other.category, _this.category) || other.category == _this.category)&&(identical(other.thumbUrl, _this.thumbUrl) || other.thumbUrl == _this.thumbUrl)&&(identical(other.imageUrl, _this.imageUrl) || other.imageUrl == _this.imageUrl));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Product&&(identical(other.productId, _this.productId) || other.productId == _this.productId)&&(identical(other.barcode, _this.barcode) || other.barcode == _this.barcode)&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.brand, _this.brand) || other.brand == _this.brand)&&(identical(other.packageDescr, _this.packageDescr) || other.packageDescr == _this.packageDescr)&&(identical(other.tipologia, _this.tipologia) || other.tipologia == _this.tipologia)&&(identical(other.price, _this.price) || other.price == _this.price)&&(identical(other.listPrice, _this.listPrice) || other.listPrice == _this.listPrice)&&(identical(other.pricePerKg, _this.pricePerKg) || other.pricePerKg == _this.pricePerKg)&&(identical(other.weightUnit, _this.weightUnit) || other.weightUnit == _this.weightUnit)&&(identical(other.category, _this.category) || other.category == _this.category)&&(identical(other.thumbUrl, _this.thumbUrl) || other.thumbUrl == _this.thumbUrl)&&(identical(other.imageUrl, _this.imageUrl) || other.imageUrl == _this.imageUrl)&&(identical(other.chain, _this.chain) || other.chain == _this.chain)&&(identical(other.priceListName, _this.priceListName) || other.priceListName == _this.priceListName));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as Product;
-  return Object.hash(runtimeType,_this.productId,_this.barcode,_this.name,_this.brand,_this.packageDescr,_this.tipologia,_this.price,_this.listPrice,_this.pricePerKg,_this.weightUnit,_this.category,_this.thumbUrl,_this.imageUrl);
+  return Object.hash(runtimeType,_this.productId,_this.barcode,_this.name,_this.brand,_this.packageDescr,_this.tipologia,_this.price,_this.listPrice,_this.pricePerKg,_this.weightUnit,_this.category,_this.thumbUrl,_this.imageUrl,_this.chain,_this.priceListName);
 }
 
 @override
 String toString() {
   final _this = this as Product;
-  return 'Product(productId: ${_this.productId}, barcode: ${_this.barcode}, name: ${_this.name}, brand: ${_this.brand}, packageDescr: ${_this.packageDescr}, tipologia: ${_this.tipologia}, price: ${_this.price}, listPrice: ${_this.listPrice}, pricePerKg: ${_this.pricePerKg}, weightUnit: ${_this.weightUnit}, category: ${_this.category}, thumbUrl: ${_this.thumbUrl}, imageUrl: ${_this.imageUrl})';
+  return 'Product(productId: ${_this.productId}, barcode: ${_this.barcode}, name: ${_this.name}, brand: ${_this.brand}, packageDescr: ${_this.packageDescr}, tipologia: ${_this.tipologia}, price: ${_this.price}, listPrice: ${_this.listPrice}, pricePerKg: ${_this.pricePerKg}, weightUnit: ${_this.weightUnit}, category: ${_this.category}, thumbUrl: ${_this.thumbUrl}, imageUrl: ${_this.imageUrl}, chain: ${_this.chain}, priceListName: ${_this.priceListName})';
 }
 
 
@@ -55,7 +56,7 @@ abstract mixin class $ProductCopyWith<$Res>  {
   factory $ProductCopyWith(Product value, $Res Function(Product) _then) = _$ProductCopyWithImpl;
 @useResult
 $Res call({
- int productId, String barcode, String name, String? brand, String? packageDescr, String? tipologia, double price, double? listPrice, double? pricePerKg, String? weightUnit, String? category, String? thumbUrl, String? imageUrl
+ int productId, String barcode, String name, String? brand, String? packageDescr, String? tipologia, double price, double? listPrice, double? pricePerKg, String? weightUnit, String? category, String? thumbUrl, String? imageUrl, Chain chain, String? priceListName
 });
 
 
@@ -72,7 +73,7 @@ class _$ProductCopyWithImpl<$Res>
 
 /// Create a copy of Product
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? productId = null,Object? barcode = null,Object? name = null,Object? brand = freezed,Object? packageDescr = freezed,Object? tipologia = freezed,Object? price = null,Object? listPrice = freezed,Object? pricePerKg = freezed,Object? weightUnit = freezed,Object? category = freezed,Object? thumbUrl = freezed,Object? imageUrl = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? productId = null,Object? barcode = null,Object? name = null,Object? brand = freezed,Object? packageDescr = freezed,Object? tipologia = freezed,Object? price = null,Object? listPrice = freezed,Object? pricePerKg = freezed,Object? weightUnit = freezed,Object? category = freezed,Object? thumbUrl = freezed,Object? imageUrl = freezed,Object? chain = null,Object? priceListName = freezed,}) {
   return _then(Product(
 productId: null == productId ? _self.productId : productId // ignore: cast_nullable_to_non_nullable
 as int,barcode: null == barcode ? _self.barcode : barcode // ignore: cast_nullable_to_non_nullable
@@ -87,6 +88,8 @@ as double?,weightUnit: freezed == weightUnit ? _self.weightUnit : weightUnit // 
 as String?,category: freezed == category ? _self.category : category // ignore: cast_nullable_to_non_nullable
 as String?,thumbUrl: freezed == thumbUrl ? _self.thumbUrl : thumbUrl // ignore: cast_nullable_to_non_nullable
 as String?,imageUrl: freezed == imageUrl ? _self.imageUrl : imageUrl // ignore: cast_nullable_to_non_nullable
+as String?,chain: null == chain ? _self.chain : chain // ignore: cast_nullable_to_non_nullable
+as Chain,priceListName: freezed == priceListName ? _self.priceListName : priceListName // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -172,10 +175,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int productId,  String barcode,  String name,  String? brand,  String? packageDescr,  String? tipologia,  double price,  double? listPrice,  double? pricePerKg,  String? weightUnit,  String? category,  String? thumbUrl,  String? imageUrl)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int productId,  String barcode,  String name,  String? brand,  String? packageDescr,  String? tipologia,  double price,  double? listPrice,  double? pricePerKg,  String? weightUnit,  String? category,  String? thumbUrl,  String? imageUrl,  Chain chain,  String? priceListName)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Product() when $default != null:
-return $default(_that.productId,_that.barcode,_that.name,_that.brand,_that.packageDescr,_that.tipologia,_that.price,_that.listPrice,_that.pricePerKg,_that.weightUnit,_that.category,_that.thumbUrl,_that.imageUrl);case _:
+return $default(_that.productId,_that.barcode,_that.name,_that.brand,_that.packageDescr,_that.tipologia,_that.price,_that.listPrice,_that.pricePerKg,_that.weightUnit,_that.category,_that.thumbUrl,_that.imageUrl,_that.chain,_that.priceListName);case _:
   return orElse();
 
 }
@@ -193,10 +196,10 @@ return $default(_that.productId,_that.barcode,_that.name,_that.brand,_that.packa
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int productId,  String barcode,  String name,  String? brand,  String? packageDescr,  String? tipologia,  double price,  double? listPrice,  double? pricePerKg,  String? weightUnit,  String? category,  String? thumbUrl,  String? imageUrl)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int productId,  String barcode,  String name,  String? brand,  String? packageDescr,  String? tipologia,  double price,  double? listPrice,  double? pricePerKg,  String? weightUnit,  String? category,  String? thumbUrl,  String? imageUrl,  Chain chain,  String? priceListName)  $default,) {final _that = this;
 switch (_that) {
 case _Product():
-return $default(_that.productId,_that.barcode,_that.name,_that.brand,_that.packageDescr,_that.tipologia,_that.price,_that.listPrice,_that.pricePerKg,_that.weightUnit,_that.category,_that.thumbUrl,_that.imageUrl);case _:
+return $default(_that.productId,_that.barcode,_that.name,_that.brand,_that.packageDescr,_that.tipologia,_that.price,_that.listPrice,_that.pricePerKg,_that.weightUnit,_that.category,_that.thumbUrl,_that.imageUrl,_that.chain,_that.priceListName);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -213,10 +216,10 @@ return $default(_that.productId,_that.barcode,_that.name,_that.brand,_that.packa
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int productId,  String barcode,  String name,  String? brand,  String? packageDescr,  String? tipologia,  double price,  double? listPrice,  double? pricePerKg,  String? weightUnit,  String? category,  String? thumbUrl,  String? imageUrl)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int productId,  String barcode,  String name,  String? brand,  String? packageDescr,  String? tipologia,  double price,  double? listPrice,  double? pricePerKg,  String? weightUnit,  String? category,  String? thumbUrl,  String? imageUrl,  Chain chain,  String? priceListName)?  $default,) {final _that = this;
 switch (_that) {
 case _Product() when $default != null:
-return $default(_that.productId,_that.barcode,_that.name,_that.brand,_that.packageDescr,_that.tipologia,_that.price,_that.listPrice,_that.pricePerKg,_that.weightUnit,_that.category,_that.thumbUrl,_that.imageUrl);case _:
+return $default(_that.productId,_that.barcode,_that.name,_that.brand,_that.packageDescr,_that.tipologia,_that.price,_that.listPrice,_that.pricePerKg,_that.weightUnit,_that.category,_that.thumbUrl,_that.imageUrl,_that.chain,_that.priceListName);case _:
   return null;
 
 }
@@ -228,7 +231,7 @@ return $default(_that.productId,_that.barcode,_that.name,_that.brand,_that.packa
 @JsonSerializable()
 
 class _Product extends Product {
-  const _Product({required this.productId, required this.barcode, required this.name, this.brand, this.packageDescr, this.tipologia, required this.price, this.listPrice, this.pricePerKg, this.weightUnit, this.category, this.thumbUrl, this.imageUrl}): super._();
+  const _Product({required this.productId, required this.barcode, required this.name, this.brand, this.packageDescr, this.tipologia, required this.price, this.listPrice, this.pricePerKg, this.weightUnit, this.category, this.thumbUrl, this.imageUrl, this.chain = Chain.poli, this.priceListName}): super._();
   factory _Product.fromJson(Map<String, dynamic> json) => _$ProductFromJson(json);
 
 @override final  int productId;
@@ -245,6 +248,9 @@ class _Product extends Product {
 @override final  String? category;
 @override final  String? thumbUrl;
 @override final  String? imageUrl;
+@override@JsonKey() final  Chain chain;
+/// Listino applicato (`priceListName`, solo Click&Coop).
+@override final  String? priceListName;
 
 /// Create a copy of Product
 /// with the given fields replaced by the non-null parameter values.
@@ -259,18 +265,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Product&&(identical(other.productId, productId) || other.productId == productId)&&(identical(other.barcode, barcode) || other.barcode == barcode)&&(identical(other.name, name) || other.name == name)&&(identical(other.brand, brand) || other.brand == brand)&&(identical(other.packageDescr, packageDescr) || other.packageDescr == packageDescr)&&(identical(other.tipologia, tipologia) || other.tipologia == tipologia)&&(identical(other.price, price) || other.price == price)&&(identical(other.listPrice, listPrice) || other.listPrice == listPrice)&&(identical(other.pricePerKg, pricePerKg) || other.pricePerKg == pricePerKg)&&(identical(other.weightUnit, weightUnit) || other.weightUnit == weightUnit)&&(identical(other.category, category) || other.category == category)&&(identical(other.thumbUrl, thumbUrl) || other.thumbUrl == thumbUrl)&&(identical(other.imageUrl, imageUrl) || other.imageUrl == imageUrl));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Product&&(identical(other.productId, productId) || other.productId == productId)&&(identical(other.barcode, barcode) || other.barcode == barcode)&&(identical(other.name, name) || other.name == name)&&(identical(other.brand, brand) || other.brand == brand)&&(identical(other.packageDescr, packageDescr) || other.packageDescr == packageDescr)&&(identical(other.tipologia, tipologia) || other.tipologia == tipologia)&&(identical(other.price, price) || other.price == price)&&(identical(other.listPrice, listPrice) || other.listPrice == listPrice)&&(identical(other.pricePerKg, pricePerKg) || other.pricePerKg == pricePerKg)&&(identical(other.weightUnit, weightUnit) || other.weightUnit == weightUnit)&&(identical(other.category, category) || other.category == category)&&(identical(other.thumbUrl, thumbUrl) || other.thumbUrl == thumbUrl)&&(identical(other.imageUrl, imageUrl) || other.imageUrl == imageUrl)&&(identical(other.chain, chain) || other.chain == chain)&&(identical(other.priceListName, priceListName) || other.priceListName == priceListName));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,productId,barcode,name,brand,packageDescr,tipologia,price,listPrice,pricePerKg,weightUnit,category,thumbUrl,imageUrl);
+    return Object.hash(runtimeType,productId,barcode,name,brand,packageDescr,tipologia,price,listPrice,pricePerKg,weightUnit,category,thumbUrl,imageUrl,chain,priceListName);
 }
 
 @override
 String toString() {
-    return 'Product(productId: $productId, barcode: $barcode, name: $name, brand: $brand, packageDescr: $packageDescr, tipologia: $tipologia, price: $price, listPrice: $listPrice, pricePerKg: $pricePerKg, weightUnit: $weightUnit, category: $category, thumbUrl: $thumbUrl, imageUrl: $imageUrl)';
+    return 'Product(productId: $productId, barcode: $barcode, name: $name, brand: $brand, packageDescr: $packageDescr, tipologia: $tipologia, price: $price, listPrice: $listPrice, pricePerKg: $pricePerKg, weightUnit: $weightUnit, category: $category, thumbUrl: $thumbUrl, imageUrl: $imageUrl, chain: $chain, priceListName: $priceListName)';
 }
 
 
@@ -281,7 +287,7 @@ abstract mixin class _$ProductCopyWith<$Res> implements $ProductCopyWith<$Res> {
   factory _$ProductCopyWith(_Product value, $Res Function(_Product) _then) = __$ProductCopyWithImpl;
 @override @useResult
 $Res call({
- int productId, String barcode, String name, String? brand, String? packageDescr, String? tipologia, double price, double? listPrice, double? pricePerKg, String? weightUnit, String? category, String? thumbUrl, String? imageUrl
+ int productId, String barcode, String name, String? brand, String? packageDescr, String? tipologia, double price, double? listPrice, double? pricePerKg, String? weightUnit, String? category, String? thumbUrl, String? imageUrl, Chain chain, String? priceListName
 });
 
 
@@ -298,7 +304,7 @@ class __$ProductCopyWithImpl<$Res>
 
 /// Create a copy of Product
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? productId = null,Object? barcode = null,Object? name = null,Object? brand = freezed,Object? packageDescr = freezed,Object? tipologia = freezed,Object? price = null,Object? listPrice = freezed,Object? pricePerKg = freezed,Object? weightUnit = freezed,Object? category = freezed,Object? thumbUrl = freezed,Object? imageUrl = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? productId = null,Object? barcode = null,Object? name = null,Object? brand = freezed,Object? packageDescr = freezed,Object? tipologia = freezed,Object? price = null,Object? listPrice = freezed,Object? pricePerKg = freezed,Object? weightUnit = freezed,Object? category = freezed,Object? thumbUrl = freezed,Object? imageUrl = freezed,Object? chain = null,Object? priceListName = freezed,}) {
   return _then(_Product(
 productId: null == productId ? _self.productId : productId // ignore: cast_nullable_to_non_nullable
 as int,barcode: null == barcode ? _self.barcode : barcode // ignore: cast_nullable_to_non_nullable
@@ -313,6 +319,8 @@ as double?,weightUnit: freezed == weightUnit ? _self.weightUnit : weightUnit // 
 as String?,category: freezed == category ? _self.category : category // ignore: cast_nullable_to_non_nullable
 as String?,thumbUrl: freezed == thumbUrl ? _self.thumbUrl : thumbUrl // ignore: cast_nullable_to_non_nullable
 as String?,imageUrl: freezed == imageUrl ? _self.imageUrl : imageUrl // ignore: cast_nullable_to_non_nullable
+as String?,chain: null == chain ? _self.chain : chain // ignore: cast_nullable_to_non_nullable
+as Chain,priceListName: freezed == priceListName ? _self.priceListName : priceListName // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }

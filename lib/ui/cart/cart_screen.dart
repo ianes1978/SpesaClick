@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../data/api_exceptions.dart';
 import '../../domain/cart_math.dart';
+import '../../domain/chain.dart';
 import '../../domain/store.dart';
 import '../feedback.dart';
 import '../providers.dart';
+import '../widgets/chain_switcher.dart';
 import '../widgets/format.dart';
 import '../widgets/store_selector.dart';
 import 'cart_tile.dart';
@@ -31,12 +33,17 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   Future<void> _submitCode(String code) async {
     final messenger = ScaffoldMessenger.of(context);
     final outcome = await handleScannedCode(ref, code);
+    if (!mounted) return;
     switch (outcome) {
       case ScanAdded(:final item):
         _feedback.ok();
         messenger.showSnackBar(SnackBar(
             duration: const Duration(seconds: 2),
             content: Text('Aggiunto: ${item.product.name}')));
+        if (outcome.needsWeight) await completeWeight(context, ref, outcome);
+      case ScanNeedsWeight():
+        _feedback.error();
+        await completeWeight(context, ref, outcome);
       case ScanNotFound(:final code):
         _feedback.error();
         messenger.showSnackBar(
@@ -74,15 +81,16 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   }
 
   Future<void> _simulate() async {
+    final chain = ref.read(activeChainProvider);
     final code = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
       builder: (ctx) => ListView(
         shrinkWrap: true,
         children: [
-          const ListTile(title: Text('Simula scansione')),
-          for (final (code, label) in kSampleCodes)
-            ListTile(
+          ListTile(title: Text('Simula scansione · ${chain.label}')),
+          for (final (c, code, label) in kSampleCodes)
+            if (c == chain || code.startsWith('000')) ListTile(
               title: Text(label),
               subtitle: Text(code),
               onTap: () => Navigator.pop(ctx, code),
@@ -115,11 +123,13 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   @override
   Widget build(BuildContext context) {
     final items = ref.watch(cartProvider);
+    final chain = ref.watch(activeChainProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Spesa Trento'),
+        title: const ChainSwitcher(),
+        titleSpacing: 8,
         actions: [
-          const Flexible(child: StoreSelector()),
+          if (chain == Chain.poli) const Flexible(child: StoreSelector()),
           PopupMenuButton<String>(
             onSelected: (v) => switch (v) {
               'manual' => _manualEntry(),
@@ -135,14 +145,21 @@ class _CartScreenState extends ConsumerState<CartScreen> {
           ),
         ],
       ),
-      body: items.isEmpty
-          ? _Empty(onManual: _manualEntry, onSimulate: _simulate)
-          : ListView.separated(
-              padding: const EdgeInsets.only(bottom: 96),
-              itemCount: items.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
-              itemBuilder: (_, i) => CartTile(items[i]),
-            ),
+      body: Column(
+        children: [
+          if (chain == Chain.coop) const CoopPriceNotice(),
+          Expanded(
+            child: items.isEmpty
+                ? _Empty(onManual: _manualEntry, onSimulate: _simulate)
+                : ListView.separated(
+                    padding: const EdgeInsets.only(bottom: 96),
+                    itemCount: items.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (_, i) => CartTile(items[i]),
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/scanner'),
         icon: const Icon(Icons.qr_code_scanner),
@@ -233,12 +250,16 @@ class _SummaryBarState extends ConsumerState<_SummaryBar> {
   Widget build(BuildContext context) {
     final totals = ref.watch(cartTotalsProvider);
     final items = ref.watch(cartProvider);
+    final poliItems =
+        items.where((i) => i.product.chain == Chain.poli).toList();
     final other = ref.watch(compareStoreProvider);
     final quotes = ref.watch(otherQuotesProvider).value ?? const {};
     final theme = Theme.of(context);
 
-    Widget compareLine;
-    if (_progress != null) {
+    Widget? compareLine;
+    if (poliItems.isEmpty) {
+      compareLine = null;
+    } else if (_progress != null) {
       compareLine = Row(children: [
         const SizedBox(
             width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
@@ -253,8 +274,8 @@ class _SummaryBarState extends ConsumerState<_SummaryBar> {
                 ?.copyWith(color: theme.colorScheme.primary)),
       );
     } else {
-      final o = otherStoreTotal(items, quotes);
-      final diff = round2(o.total - totals.total);
+      final o = otherStoreTotal(poliItems, quotes);
+      final diff = round2(o.total - cartTotals(poliItems).total);
       final name = other.addressId == kPoliGardoloId ? 'Gardolo' : other.shortName;
       final text = diff > 0
           ? 'Qui risparmi ${eur(diff)}'
@@ -301,11 +322,60 @@ class _SummaryBarState extends ConsumerState<_SummaryBar> {
                           ?.copyWith(fontWeight: FontWeight.bold)),
                 ],
               ),
-              const SizedBox(height: 4),
-              Align(alignment: Alignment.centerLeft, child: compareLine),
+              if (compareLine != null) ...[
+                const SizedBox(height: 4),
+                Align(alignment: Alignment.centerLeft, child: compareLine),
+              ],
+              const SizedBox(height: 2),
+              const Align(
+                  alignment: Alignment.centerLeft, child: _CrossChainLine()),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// "Da Coop spenderesti X €": totale delle righe nell'altra catena.
+class _CrossChainLine extends ConsumerWidget {
+  const _CrossChainLine();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final items = ref.watch(cartProvider);
+    final cross = ref.watch(crossChainProvider);
+    final theme = Theme.of(context);
+    final style = theme.textTheme.bodySmall;
+    final relevant = items.where((i) => i.product.productId > 0).toList();
+    if (relevant.isEmpty) return const SizedBox.shrink();
+    final chains = relevant.map((i) => i.product.chain.other).toSet();
+    final name = chains.length == 1 ? chains.first.label : "l'altra catena";
+    final pending = relevant.where((i) => !cross.containsKey(i.id)).length;
+    final quotes = {
+      for (final e in cross.entries)
+        if (e.value != null) e.key: e.value!,
+    };
+    if (quotes.isEmpty) {
+      return Text(
+          pending > 0 ? 'Cerco i prezzi $name…' : 'Nessun articolo a listino $name',
+          style: style);
+    }
+    final o = otherStoreTotal(relevant, quotes, keyOf: (i) => i.id);
+    final here = cartTotals(relevant).total;
+    final diff = round2(o.total - here);
+    final missing = relevant.length - quotes.length;
+    final verdict = diff > 0
+        ? 'qui risparmi ${eur(diff)}'
+        : diff < 0
+            ? 'da $name spenderesti ${eur(-diff)} in meno'
+            : 'stesso totale';
+    return InkWell(
+      onTap: ref.read(crossChainProvider.notifier).refresh,
+      child: Text(
+        '$name: ${eur(o.total)} · $verdict'
+        '${missing > 0 ? ' ($missing senza prezzo)' : ''}',
+        style: style,
       ),
     );
   }

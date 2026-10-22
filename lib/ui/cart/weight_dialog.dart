@@ -12,16 +12,18 @@ class WeightResult {
 }
 
 /// Peso (kg) ↔ totale etichetta (€) sincronizzati, prezzo al kg modificabile.
-Future<WeightResult?> showWeightDialog(BuildContext context, CartItem item) {
+Future<WeightResult?> showWeightDialog(BuildContext context, CartItem item,
+    {String? title}) {
   return showDialog<WeightResult>(
     context: context,
-    builder: (_) => _WeightDialog(item),
+    builder: (_) => _WeightDialog(item, title),
   );
 }
 
 class _WeightDialog extends StatefulWidget {
-  const _WeightDialog(this.item);
+  const _WeightDialog(this.item, this.message);
   final CartItem item;
+  final String? message;
 
   @override
   State<_WeightDialog> createState() => _WeightDialogState();
@@ -72,9 +74,14 @@ class _WeightDialogState extends State<_WeightDialog> {
     return AlertDialog(
       title: Text(widget.item.product.name,
           maxLines: 2, overflow: TextOverflow.ellipsis),
-      content: Column(
+      content: SingleChildScrollView(child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (widget.message != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(widget.message!),
+            ),
           TextField(
             controller: _ppk,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -101,7 +108,7 @@ class _WeightDialogState extends State<_WeightDialog> {
             onChanged: (_) => _fromTotal(),
           ),
         ],
-      ),
+      )),
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context), child: const Text('Annulla')),

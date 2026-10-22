@@ -59,6 +59,12 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     _feedback.ok();
     final outcome = await handleScannedCode(ref, code);
     if (outcome is! ScanAdded) _feedback.error();
+    if (mounted && (outcome is ScanNeedsWeight ||
+        (outcome is ScanAdded && outcome.needsWeight))) {
+      await _controller.stop();
+      if (mounted) await completeWeight(context, ref, outcome);
+      if (mounted) await _controller.start();
+    }
     _lastAt = DateTime.now();
     if (mounted) setState(() => _outcome = outcome);
     _busy = false;
@@ -67,6 +73,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   @override
   Widget build(BuildContext context) {
     final totals = ref.watch(cartTotalsProvider);
+    final chain = ref.watch(activeChainProvider);
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -100,7 +107,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                     ),
                     const Spacer(),
                     Text(
-                      '${totals.pieces} pz · ${eur(totals.total)}',
+                      '${chain.label} · ${totals.pieces} pz · ${eur(totals.total)}',
                       style: const TextStyle(
                           color: Colors.white,
                           fontSize: 18,
@@ -163,6 +170,11 @@ class _OutcomeCard extends StatelessWidget {
           ]),
           trailing: Text(eur(lineTotals(item).net),
               style: Theme.of(context).textTheme.titleMedium),
+        ),
+      ScanNeedsWeight(:final code) => ListTile(
+          leading: const Icon(Icons.scale_outlined),
+          title: const Text('Codice bilancia'),
+          subtitle: Text(code),
         ),
       ScanNotFound(:final code) => ListTile(
           leading: const Icon(Icons.search_off, color: Colors.red),

@@ -9,6 +9,15 @@ class $PriceCacheTable extends PriceCache
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $PriceCacheTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _chainMeta = const VerificationMeta('chain');
+  @override
+  late final GeneratedColumn<String> chain = GeneratedColumn<String>(
+    'chain',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
   static const VerificationMeta _storeKeyMeta = const VerificationMeta(
     'storeKey',
   );
@@ -53,6 +62,7 @@ class $PriceCacheTable extends PriceCache
   );
   @override
   List<GeneratedColumn> get $columns => [
+    chain,
     storeKey,
     barcode,
     productJson,
@@ -70,6 +80,14 @@ class $PriceCacheTable extends PriceCache
   }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
+    if (data.containsKey('chain')) {
+      context.handle(
+        _chainMeta,
+        chain.isAcceptableOrUnknown(data['chain']!, _chainMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_chainMeta);
+    }
     if (data.containsKey('store_key')) {
       context.handle(
         _storeKeyMeta,
@@ -109,11 +127,15 @@ class $PriceCacheTable extends PriceCache
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {storeKey, barcode};
+  Set<GeneratedColumn> get $primaryKey => {chain, storeKey, barcode};
   @override
   PriceCacheData map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return PriceCacheData(
+      chain: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}chain'],
+      )!,
       storeKey: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}store_key'],
@@ -140,11 +162,13 @@ class $PriceCacheTable extends PriceCache
 }
 
 class PriceCacheData extends DataClass implements Insertable<PriceCacheData> {
+  final String chain;
   final String storeKey;
   final String barcode;
   final String productJson;
   final DateTime readAt;
   const PriceCacheData({
+    required this.chain,
     required this.storeKey,
     required this.barcode,
     required this.productJson,
@@ -153,6 +177,7 @@ class PriceCacheData extends DataClass implements Insertable<PriceCacheData> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    map['chain'] = Variable<String>(chain);
     map['store_key'] = Variable<String>(storeKey);
     map['barcode'] = Variable<String>(barcode);
     map['product_json'] = Variable<String>(productJson);
@@ -162,6 +187,7 @@ class PriceCacheData extends DataClass implements Insertable<PriceCacheData> {
 
   PriceCacheCompanion toCompanion(bool nullToAbsent) {
     return PriceCacheCompanion(
+      chain: Value(chain),
       storeKey: Value(storeKey),
       barcode: Value(barcode),
       productJson: Value(productJson),
@@ -175,6 +201,7 @@ class PriceCacheData extends DataClass implements Insertable<PriceCacheData> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return PriceCacheData(
+      chain: serializer.fromJson<String>(json['chain']),
       storeKey: serializer.fromJson<String>(json['storeKey']),
       barcode: serializer.fromJson<String>(json['barcode']),
       productJson: serializer.fromJson<String>(json['productJson']),
@@ -185,6 +212,7 @@ class PriceCacheData extends DataClass implements Insertable<PriceCacheData> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
+      'chain': serializer.toJson<String>(chain),
       'storeKey': serializer.toJson<String>(storeKey),
       'barcode': serializer.toJson<String>(barcode),
       'productJson': serializer.toJson<String>(productJson),
@@ -193,11 +221,13 @@ class PriceCacheData extends DataClass implements Insertable<PriceCacheData> {
   }
 
   PriceCacheData copyWith({
+    String? chain,
     String? storeKey,
     String? barcode,
     String? productJson,
     DateTime? readAt,
   }) => PriceCacheData(
+    chain: chain ?? this.chain,
     storeKey: storeKey ?? this.storeKey,
     barcode: barcode ?? this.barcode,
     productJson: productJson ?? this.productJson,
@@ -205,6 +235,7 @@ class PriceCacheData extends DataClass implements Insertable<PriceCacheData> {
   );
   PriceCacheData copyWithCompanion(PriceCacheCompanion data) {
     return PriceCacheData(
+      chain: data.chain.present ? data.chain.value : this.chain,
       storeKey: data.storeKey.present ? data.storeKey.value : this.storeKey,
       barcode: data.barcode.present ? data.barcode.value : this.barcode,
       productJson: data.productJson.present
@@ -217,6 +248,7 @@ class PriceCacheData extends DataClass implements Insertable<PriceCacheData> {
   @override
   String toString() {
     return (StringBuffer('PriceCacheData(')
+          ..write('chain: $chain, ')
           ..write('storeKey: $storeKey, ')
           ..write('barcode: $barcode, ')
           ..write('productJson: $productJson, ')
@@ -226,11 +258,13 @@ class PriceCacheData extends DataClass implements Insertable<PriceCacheData> {
   }
 
   @override
-  int get hashCode => Object.hash(storeKey, barcode, productJson, readAt);
+  int get hashCode =>
+      Object.hash(chain, storeKey, barcode, productJson, readAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is PriceCacheData &&
+          other.chain == this.chain &&
           other.storeKey == this.storeKey &&
           other.barcode == this.barcode &&
           other.productJson == this.productJson &&
@@ -238,12 +272,14 @@ class PriceCacheData extends DataClass implements Insertable<PriceCacheData> {
 }
 
 class PriceCacheCompanion extends UpdateCompanion<PriceCacheData> {
+  final Value<String> chain;
   final Value<String> storeKey;
   final Value<String> barcode;
   final Value<String> productJson;
   final Value<DateTime> readAt;
   final Value<int> rowid;
   const PriceCacheCompanion({
+    this.chain = const Value.absent(),
     this.storeKey = const Value.absent(),
     this.barcode = const Value.absent(),
     this.productJson = const Value.absent(),
@@ -251,16 +287,19 @@ class PriceCacheCompanion extends UpdateCompanion<PriceCacheData> {
     this.rowid = const Value.absent(),
   });
   PriceCacheCompanion.insert({
+    required String chain,
     required String storeKey,
     required String barcode,
     required String productJson,
     required DateTime readAt,
     this.rowid = const Value.absent(),
-  }) : storeKey = Value(storeKey),
+  }) : chain = Value(chain),
+       storeKey = Value(storeKey),
        barcode = Value(barcode),
        productJson = Value(productJson),
        readAt = Value(readAt);
   static Insertable<PriceCacheData> custom({
+    Expression<String>? chain,
     Expression<String>? storeKey,
     Expression<String>? barcode,
     Expression<String>? productJson,
@@ -268,6 +307,7 @@ class PriceCacheCompanion extends UpdateCompanion<PriceCacheData> {
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
+      if (chain != null) 'chain': chain,
       if (storeKey != null) 'store_key': storeKey,
       if (barcode != null) 'barcode': barcode,
       if (productJson != null) 'product_json': productJson,
@@ -277,6 +317,7 @@ class PriceCacheCompanion extends UpdateCompanion<PriceCacheData> {
   }
 
   PriceCacheCompanion copyWith({
+    Value<String>? chain,
     Value<String>? storeKey,
     Value<String>? barcode,
     Value<String>? productJson,
@@ -284,6 +325,7 @@ class PriceCacheCompanion extends UpdateCompanion<PriceCacheData> {
     Value<int>? rowid,
   }) {
     return PriceCacheCompanion(
+      chain: chain ?? this.chain,
       storeKey: storeKey ?? this.storeKey,
       barcode: barcode ?? this.barcode,
       productJson: productJson ?? this.productJson,
@@ -295,6 +337,9 @@ class PriceCacheCompanion extends UpdateCompanion<PriceCacheData> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (chain.present) {
+      map['chain'] = Variable<String>(chain.value);
+    }
     if (storeKey.present) {
       map['store_key'] = Variable<String>(storeKey.value);
     }
@@ -316,6 +361,7 @@ class PriceCacheCompanion extends UpdateCompanion<PriceCacheData> {
   @override
   String toString() {
     return (StringBuffer('PriceCacheCompanion(')
+          ..write('chain: $chain, ')
           ..write('storeKey: $storeKey, ')
           ..write('barcode: $barcode, ')
           ..write('productJson: $productJson, ')
@@ -331,6 +377,26 @@ class $CatalogTable extends Catalog with TableInfo<$CatalogTable, CatalogData> {
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $CatalogTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _chainMeta = const VerificationMeta('chain');
+  @override
+  late final GeneratedColumn<String> chain = GeneratedColumn<String>(
+    'chain',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _productIdMeta = const VerificationMeta(
+    'productId',
+  );
+  @override
+  late final GeneratedColumn<int> productId = GeneratedColumn<int>(
+    'product_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
   static const VerificationMeta _barcodeMeta = const VerificationMeta(
     'barcode',
   );
@@ -395,6 +461,8 @@ class $CatalogTable extends Catalog with TableInfo<$CatalogTable, CatalogData> {
   );
   @override
   List<GeneratedColumn> get $columns => [
+    chain,
+    productId,
     barcode,
     name,
     brand,
@@ -414,6 +482,22 @@ class $CatalogTable extends Catalog with TableInfo<$CatalogTable, CatalogData> {
   }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
+    if (data.containsKey('chain')) {
+      context.handle(
+        _chainMeta,
+        chain.isAcceptableOrUnknown(data['chain']!, _chainMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_chainMeta);
+    }
+    if (data.containsKey('product_id')) {
+      context.handle(
+        _productIdMeta,
+        productId.isAcceptableOrUnknown(data['product_id']!, _productIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_productIdMeta);
+    }
     if (data.containsKey('barcode')) {
       context.handle(
         _barcodeMeta,
@@ -468,11 +552,19 @@ class $CatalogTable extends Catalog with TableInfo<$CatalogTable, CatalogData> {
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {barcode};
+  Set<GeneratedColumn> get $primaryKey => {chain, productId};
   @override
   CatalogData map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return CatalogData(
+      chain: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}chain'],
+      )!,
+      productId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}product_id'],
+      )!,
       barcode: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}barcode'],
@@ -507,6 +599,8 @@ class $CatalogTable extends Catalog with TableInfo<$CatalogTable, CatalogData> {
 }
 
 class CatalogData extends DataClass implements Insertable<CatalogData> {
+  final String chain;
+  final int productId;
   final String barcode;
   final String name;
   final String? brand;
@@ -514,6 +608,8 @@ class CatalogData extends DataClass implements Insertable<CatalogData> {
   final String productJson;
   final DateTime downloadedAt;
   const CatalogData({
+    required this.chain,
+    required this.productId,
     required this.barcode,
     required this.name,
     this.brand,
@@ -524,6 +620,8 @@ class CatalogData extends DataClass implements Insertable<CatalogData> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    map['chain'] = Variable<String>(chain);
+    map['product_id'] = Variable<int>(productId);
     map['barcode'] = Variable<String>(barcode);
     map['name'] = Variable<String>(name);
     if (!nullToAbsent || brand != null) {
@@ -539,6 +637,8 @@ class CatalogData extends DataClass implements Insertable<CatalogData> {
 
   CatalogCompanion toCompanion(bool nullToAbsent) {
     return CatalogCompanion(
+      chain: Value(chain),
+      productId: Value(productId),
       barcode: Value(barcode),
       name: Value(name),
       brand: brand == null && nullToAbsent
@@ -558,6 +658,8 @@ class CatalogData extends DataClass implements Insertable<CatalogData> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return CatalogData(
+      chain: serializer.fromJson<String>(json['chain']),
+      productId: serializer.fromJson<int>(json['productId']),
       barcode: serializer.fromJson<String>(json['barcode']),
       name: serializer.fromJson<String>(json['name']),
       brand: serializer.fromJson<String?>(json['brand']),
@@ -570,6 +672,8 @@ class CatalogData extends DataClass implements Insertable<CatalogData> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
+      'chain': serializer.toJson<String>(chain),
+      'productId': serializer.toJson<int>(productId),
       'barcode': serializer.toJson<String>(barcode),
       'name': serializer.toJson<String>(name),
       'brand': serializer.toJson<String?>(brand),
@@ -580,6 +684,8 @@ class CatalogData extends DataClass implements Insertable<CatalogData> {
   }
 
   CatalogData copyWith({
+    String? chain,
+    int? productId,
     String? barcode,
     String? name,
     Value<String?> brand = const Value.absent(),
@@ -587,6 +693,8 @@ class CatalogData extends DataClass implements Insertable<CatalogData> {
     String? productJson,
     DateTime? downloadedAt,
   }) => CatalogData(
+    chain: chain ?? this.chain,
+    productId: productId ?? this.productId,
     barcode: barcode ?? this.barcode,
     name: name ?? this.name,
     brand: brand.present ? brand.value : this.brand,
@@ -596,6 +704,8 @@ class CatalogData extends DataClass implements Insertable<CatalogData> {
   );
   CatalogData copyWithCompanion(CatalogCompanion data) {
     return CatalogData(
+      chain: data.chain.present ? data.chain.value : this.chain,
+      productId: data.productId.present ? data.productId.value : this.productId,
       barcode: data.barcode.present ? data.barcode.value : this.barcode,
       name: data.name.present ? data.name.value : this.name,
       brand: data.brand.present ? data.brand.value : this.brand,
@@ -612,6 +722,8 @@ class CatalogData extends DataClass implements Insertable<CatalogData> {
   @override
   String toString() {
     return (StringBuffer('CatalogData(')
+          ..write('chain: $chain, ')
+          ..write('productId: $productId, ')
           ..write('barcode: $barcode, ')
           ..write('name: $name, ')
           ..write('brand: $brand, ')
@@ -623,12 +735,22 @@ class CatalogData extends DataClass implements Insertable<CatalogData> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(barcode, name, brand, category, productJson, downloadedAt);
+  int get hashCode => Object.hash(
+    chain,
+    productId,
+    barcode,
+    name,
+    brand,
+    category,
+    productJson,
+    downloadedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is CatalogData &&
+          other.chain == this.chain &&
+          other.productId == this.productId &&
           other.barcode == this.barcode &&
           other.name == this.name &&
           other.brand == this.brand &&
@@ -638,6 +760,8 @@ class CatalogData extends DataClass implements Insertable<CatalogData> {
 }
 
 class CatalogCompanion extends UpdateCompanion<CatalogData> {
+  final Value<String> chain;
+  final Value<int> productId;
   final Value<String> barcode;
   final Value<String> name;
   final Value<String?> brand;
@@ -646,6 +770,8 @@ class CatalogCompanion extends UpdateCompanion<CatalogData> {
   final Value<DateTime> downloadedAt;
   final Value<int> rowid;
   const CatalogCompanion({
+    this.chain = const Value.absent(),
+    this.productId = const Value.absent(),
     this.barcode = const Value.absent(),
     this.name = const Value.absent(),
     this.brand = const Value.absent(),
@@ -655,6 +781,8 @@ class CatalogCompanion extends UpdateCompanion<CatalogData> {
     this.rowid = const Value.absent(),
   });
   CatalogCompanion.insert({
+    required String chain,
+    required int productId,
     required String barcode,
     required String name,
     this.brand = const Value.absent(),
@@ -662,11 +790,15 @@ class CatalogCompanion extends UpdateCompanion<CatalogData> {
     required String productJson,
     required DateTime downloadedAt,
     this.rowid = const Value.absent(),
-  }) : barcode = Value(barcode),
+  }) : chain = Value(chain),
+       productId = Value(productId),
+       barcode = Value(barcode),
        name = Value(name),
        productJson = Value(productJson),
        downloadedAt = Value(downloadedAt);
   static Insertable<CatalogData> custom({
+    Expression<String>? chain,
+    Expression<int>? productId,
     Expression<String>? barcode,
     Expression<String>? name,
     Expression<String>? brand,
@@ -676,6 +808,8 @@ class CatalogCompanion extends UpdateCompanion<CatalogData> {
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
+      if (chain != null) 'chain': chain,
+      if (productId != null) 'product_id': productId,
       if (barcode != null) 'barcode': barcode,
       if (name != null) 'name': name,
       if (brand != null) 'brand': brand,
@@ -687,6 +821,8 @@ class CatalogCompanion extends UpdateCompanion<CatalogData> {
   }
 
   CatalogCompanion copyWith({
+    Value<String>? chain,
+    Value<int>? productId,
     Value<String>? barcode,
     Value<String>? name,
     Value<String?>? brand,
@@ -696,6 +832,8 @@ class CatalogCompanion extends UpdateCompanion<CatalogData> {
     Value<int>? rowid,
   }) {
     return CatalogCompanion(
+      chain: chain ?? this.chain,
+      productId: productId ?? this.productId,
       barcode: barcode ?? this.barcode,
       name: name ?? this.name,
       brand: brand ?? this.brand,
@@ -709,6 +847,12 @@ class CatalogCompanion extends UpdateCompanion<CatalogData> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (chain.present) {
+      map['chain'] = Variable<String>(chain.value);
+    }
+    if (productId.present) {
+      map['product_id'] = Variable<int>(productId.value);
+    }
     if (barcode.present) {
       map['barcode'] = Variable<String>(barcode.value);
     }
@@ -736,6 +880,8 @@ class CatalogCompanion extends UpdateCompanion<CatalogData> {
   @override
   String toString() {
     return (StringBuffer('CatalogCompanion(')
+          ..write('chain: $chain, ')
+          ..write('productId: $productId, ')
           ..write('barcode: $barcode, ')
           ..write('name: $name, ')
           ..write('brand: $brand, ')
@@ -1232,6 +1378,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
 }
 
 typedef $$PriceCacheTableCreateCompanionBuilder = PriceCacheCompanion Function({
+  required String chain,
   required String storeKey,
   required String barcode,
   required String productJson,
@@ -1239,6 +1386,7 @@ typedef $$PriceCacheTableCreateCompanionBuilder = PriceCacheCompanion Function({
   Value<int> rowid,
 });
 typedef $$PriceCacheTableUpdateCompanionBuilder = PriceCacheCompanion Function({
+  Value<String> chain,
   Value<String> storeKey,
   Value<String> barcode,
   Value<String> productJson,
@@ -1255,6 +1403,11 @@ class $$PriceCacheTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnFilters<String> get chain => $composableBuilder(
+    column: $table.chain,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get storeKey => $composableBuilder(
     column: $table.storeKey,
     builder: (column) => ColumnFilters(column),
@@ -1285,6 +1438,11 @@ class $$PriceCacheTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnOrderings<String> get chain => $composableBuilder(
+    column: $table.chain,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get storeKey => $composableBuilder(
     column: $table.storeKey,
     builder: (column) => ColumnOrderings(column),
@@ -1315,6 +1473,9 @@ class $$PriceCacheTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  GeneratedColumn<String> get chain =>
+      $composableBuilder(column: $table.chain, builder: (column) => column);
+
   GeneratedColumn<String> get storeKey =>
       $composableBuilder(column: $table.storeKey, builder: (column) => column);
 
@@ -1361,12 +1522,14 @@ class $$PriceCacheTableTableManager
               $$PriceCacheTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
+                Value<String> chain = const Value.absent(),
                 Value<String> storeKey = const Value.absent(),
                 Value<String> barcode = const Value.absent(),
                 Value<String> productJson = const Value.absent(),
                 Value<DateTime> readAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PriceCacheCompanion(
+                chain: chain,
                 storeKey: storeKey,
                 barcode: barcode,
                 productJson: productJson,
@@ -1375,12 +1538,14 @@ class $$PriceCacheTableTableManager
               ),
           createCompanionCallback:
               ({
+                required String chain,
                 required String storeKey,
                 required String barcode,
                 required String productJson,
                 required DateTime readAt,
                 Value<int> rowid = const Value.absent(),
               }) => PriceCacheCompanion.insert(
+                chain: chain,
                 storeKey: storeKey,
                 barcode: barcode,
                 productJson: productJson,
@@ -1422,6 +1587,8 @@ typedef $$PriceCacheTableProcessedTableManager =
       PrefetchHooks Function()
     >;
 typedef $$CatalogTableCreateCompanionBuilder = CatalogCompanion Function({
+  required String chain,
+  required int productId,
   required String barcode,
   required String name,
   Value<String?> brand,
@@ -1431,6 +1598,8 @@ typedef $$CatalogTableCreateCompanionBuilder = CatalogCompanion Function({
   Value<int> rowid,
 });
 typedef $$CatalogTableUpdateCompanionBuilder = CatalogCompanion Function({
+  Value<String> chain,
+  Value<int> productId,
   Value<String> barcode,
   Value<String> name,
   Value<String?> brand,
@@ -1449,6 +1618,16 @@ class $$CatalogTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnFilters<String> get chain => $composableBuilder(
+    column: $table.chain,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get barcode => $composableBuilder(
     column: $table.barcode,
     builder: (column) => ColumnFilters(column),
@@ -1489,6 +1668,16 @@ class $$CatalogTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnOrderings<String> get chain => $composableBuilder(
+    column: $table.chain,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get barcode => $composableBuilder(
     column: $table.barcode,
     builder: (column) => ColumnOrderings(column),
@@ -1529,6 +1718,12 @@ class $$CatalogTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  GeneratedColumn<String> get chain =>
+      $composableBuilder(column: $table.chain, builder: (column) => column);
+
+  GeneratedColumn<int> get productId =>
+      $composableBuilder(column: $table.productId, builder: (column) => column);
+
   GeneratedColumn<String> get barcode =>
       $composableBuilder(column: $table.barcode, builder: (column) => column);
 
@@ -1583,6 +1778,8 @@ class $$CatalogTableTableManager
               $$CatalogTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
+                Value<String> chain = const Value.absent(),
+                Value<int> productId = const Value.absent(),
                 Value<String> barcode = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String?> brand = const Value.absent(),
@@ -1591,6 +1788,8 @@ class $$CatalogTableTableManager
                 Value<DateTime> downloadedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CatalogCompanion(
+                chain: chain,
+                productId: productId,
                 barcode: barcode,
                 name: name,
                 brand: brand,
@@ -1601,6 +1800,8 @@ class $$CatalogTableTableManager
               ),
           createCompanionCallback:
               ({
+                required String chain,
+                required int productId,
                 required String barcode,
                 required String name,
                 Value<String?> brand = const Value.absent(),
@@ -1609,6 +1810,8 @@ class $$CatalogTableTableManager
                 required DateTime downloadedAt,
                 Value<int> rowid = const Value.absent(),
               }) => CatalogCompanion.insert(
+                chain: chain,
+                productId: productId,
                 barcode: barcode,
                 name: name,
                 brand: brand,

@@ -12,6 +12,7 @@ _PriceQuote _$PriceQuoteFromJson(Map<String, dynamic> json) => _PriceQuote(
   pricePerKg: (json['pricePerKg'] as num?)?.toDouble(),
   source: $enumDecode(_$PriceSourceEnumMap, json['source']),
   readAt: DateTime.parse(json['readAt'] as String),
+  chain: $enumDecodeNullable(_$ChainEnumMap, json['chain']) ?? Chain.poli,
   storeId: (json['storeId'] as num?)?.toInt(),
 );
 
@@ -22,6 +23,7 @@ Map<String, dynamic> _$PriceQuoteToJson(_PriceQuote instance) =>
       'pricePerKg': ?instance.pricePerKg,
       'source': _$PriceSourceEnumMap[instance.source]!,
       'readAt': instance.readAt.toIso8601String(),
+      'chain': _$ChainEnumMap[instance.chain]!,
       'storeId': ?instance.storeId,
     };
 
@@ -31,3 +33,5 @@ const _$PriceSourceEnumMap = {
   PriceSource.label: 'label',
   PriceSource.offline: 'offline',
 };
+
+const _$ChainEnumMap = {Chain.poli: 'poli', Chain.coop: 'coop'};

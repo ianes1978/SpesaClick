@@ -4,14 +4,14 @@ import '../domain/price_quote.dart';
 import '../domain/store.dart';
 import 'api_exceptions.dart';
 import 'database.dart';
-import 'dupliclick_api.dart';
+import 'ebsn_api.dart';
 import 'product_repository.dart';
 
 /// Punti vendita, cambio negozio e confronto prezzi.
 class StoreRepository {
   StoreRepository({required this.api, required this.db, required this.products});
 
-  final DupliclickApi api;
+  final EbsnApi api;
   final AppDatabase db;
   final ProductRepository products;
 

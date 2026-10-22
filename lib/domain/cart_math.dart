@@ -97,14 +97,16 @@ class OtherStoreTotal {
   final int missing;
 }
 
-/// Totale del carrello nell'altro negozio. [quotes] è indicizzato per
-/// barcode del prodotto (`item.product.barcode`).
+/// Totale del carrello in un altro negozio o catena. [quotes] è indicizzato
+/// con [keyOf] (di default il barcode del prodotto).
 OtherStoreTotal otherStoreTotal(
-    Iterable<CartItem> items, Map<String, PriceQuote> quotes) {
+    Iterable<CartItem> items, Map<String, PriceQuote> quotes,
+    {String Function(CartItem)? keyOf}) {
+  final key = keyOf ?? (CartItem i) => i.product.barcode;
   var total = 0.0;
   var missing = 0;
   for (final it in items) {
-    final q = quotes[it.product.barcode];
+    final q = quotes[key(it)];
     if (q == null) missing++;
     total += lineTotals(it, quote: q).net;
   }

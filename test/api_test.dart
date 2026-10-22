@@ -5,7 +5,8 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spesa_trento/data/api_exceptions.dart';
-import 'package:spesa_trento/data/dupliclick_api.dart';
+import 'package:spesa_trento/data/ebsn_api.dart';
+import 'package:spesa_trento/data/ebsn_config.dart';
 import 'package:spesa_trento/domain/product.dart';
 
 /// Adapter finto: restituisce sempre la stessa risposta e registra le richieste.
@@ -32,9 +33,11 @@ class FakeAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
-DupliclickApi apiWith(FakeAdapter a, {void Function()? onExpired}) {
-  final api = DupliclickApi(
-      minInterval: Duration.zero, onSessionExpired: onExpired);
+EbsnApi apiWith(FakeAdapter a, {void Function()? onExpired}) {
+  final api = EbsnApi(EbsnConfig.poli,
+      minInterval: Duration.zero,
+      sleep: (_) async {},
+      onSessionExpired: onExpired);
   api.dio.httpClientAdapter = a;
   return api;
 }
@@ -110,7 +113,7 @@ void main() {
     });
   });
 
-  group('DupliclickApi', () {
+  group('EbsnApi · DupliClick', () {
     test('cerca per barcode e decodifica JSON servito come text/html',
         () async {
       final a = FakeAdapter(fixture,

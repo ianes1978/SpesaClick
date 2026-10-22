@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'chain.dart';
+
 part 'price_quote.freezed.dart';
 part 'price_quote.g.dart';
 
@@ -42,6 +44,9 @@ abstract class PriceQuote with _$PriceQuote {
     double? pricePerKg,
     required PriceSource source,
     required DateTime readAt,
+
+    /// Catena a cui si riferisce il prezzo.
+    @Default(Chain.poli) Chain chain,
 
     /// Punto vendita a cui si riferisce il prezzo (null = online/offline).
     int? storeId,

@@ -6,14 +6,14 @@ import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:flutter/foundation.dart';
 
+import '../domain/chain.dart';
 import '../domain/product.dart';
 import '../domain/store.dart';
 import 'api_exceptions.dart';
+import 'ebsn_config.dart';
 import 'json_utils.dart';
 
 const kDupliclickOrigin = 'https://www.dupliclick.it';
-const kEbsnBase = '$kDupliclickOrigin/ebsn/api';
-final kEbsnCookieUri = Uri.parse('$kDupliclickOrigin/ebsn/');
 
 /// Una pagina di risultati di `/products`.
 class ProductPage {
@@ -32,7 +32,14 @@ class ProductPage {
   bool get hasMore => page < totPages;
 }
 
-/// Credenziali di sessione copiate dalla WebView di login.
+class EbsnCategory {
+  const EbsnCategory(this.id, this.name, this.slug);
+  final int id;
+  final String name;
+  final String? slug;
+}
+
+/// Credenziali di sessione copiate dalla WebView di login (solo DupliClick).
 class EbsnSession {
   const EbsnSession({this.jsessionId, this.ebsnSession, this.ebsnAccount});
 
@@ -51,39 +58,41 @@ class EbsnSession {
       );
 }
 
-/// Unico punto di contatto con le API (non documentate) di DupliClick.
+/// Unico punto di contatto con le API (non documentate) della piattaforma
+/// ebsn, usata sia da DupliClick sia da Click&Coop. Le differenze fra le
+/// catene stanno in [EbsnConfig].
 ///
-/// Tutte le richieste passano da un solo client Dio che:
-/// * aggiunge gli header `X-Ebsn-*` del sito web;
-/// * aggiorna `X-Ebsn-Session` se il server ne restituisce uno nuovo;
-/// * trasforma il 419 in [SessionExpiredException];
-/// * serializza le richieste con almeno 300 ms di distanza;
-/// * ritenta una sola volta in caso di errore di rete.
-class DupliclickApi {
-  DupliclickApi({
+/// Tutte le richieste di un client:
+/// * partono una alla volta, distanziate di [EbsnConfig.minInterval];
+/// * portano gli header `X-Ebsn-*` del sito web;
+/// * vengono ritentate con attesa crescente sugli errori di rete (e, se la
+///   catena lo richiede, sulle risposte `status != 0`);
+/// * su HTTP 419 lanciano [SessionExpiredException].
+class EbsnApi {
+  EbsnApi(
+    this.config, {
     Dio? dio,
     CookieJar? cookieJar,
-    this.minInterval = const Duration(milliseconds: 300),
+    Duration? minInterval,
+    this.sleep = _defaultSleep,
     this.onSessionChanged,
     this.onSessionExpired,
-  })  : cookieJar = cookieJar ?? CookieJar(),
+  })  : minInterval = minInterval ?? config.minInterval,
+        cookieJar = cookieJar ?? CookieJar(),
         dio = dio ??
             Dio(BaseOptions(
-              baseUrl: kEbsnBase,
+              baseUrl: config.baseUrl,
               connectTimeout: const Duration(seconds: 20),
               receiveTimeout: const Duration(seconds: 20),
               sendTimeout: const Duration(seconds: 20),
+              // Il corpo è JSON servito come text/html: lo leggiamo come testo.
               responseType: ResponseType.plain,
               // Gestiamo noi i codici d'errore (419 compreso).
               validateStatus: (_) => true,
             )) {
     this.dio.interceptors.addAll([
-      CookieManager(this.cookieJar),
-      InterceptorsWrapper(
-        onRequest: _onRequest,
-        onResponse: _onResponse,
-        onError: _onError,
-      ),
+      if (config.supportsSession) CookieManager(this.cookieJar),
+      InterceptorsWrapper(onRequest: _onRequest, onResponse: _onResponse),
       if (kDebugMode)
         LogInterceptor(
           requestHeader: false,
@@ -97,15 +106,23 @@ class DupliclickApi {
     ]);
   }
 
+  static Future<void> _defaultSleep(Duration d) => Future<void>.delayed(d);
+
+  final EbsnConfig config;
   final Dio dio;
   final CookieJar cookieJar;
   final Duration minInterval;
+
+  /// Attesa fra i tentativi (sostituibile nei test).
+  final Future<void> Function(Duration) sleep;
 
   /// Chiamato quando cambia JSESSIONID o X-Ebsn-Session (per salvarli).
   final void Function(EbsnSession session)? onSessionChanged;
 
   /// Chiamato su HTTP 419.
   final void Function()? onSessionExpired;
+
+  Chain get chain => config.chain;
 
   EbsnSession _session = const EbsnSession();
   EbsnSession get session => _session;
@@ -123,7 +140,7 @@ class DupliclickApi {
         ..path = '/ebsn/'
         ..httpOnly = true
         ..secure = true;
-      await cookieJar.saveFromResponse(kEbsnCookieUri, [c]);
+      await cookieJar.saveFromResponse(config.cookieUri, [c]);
     }
   }
 
@@ -152,15 +169,18 @@ class DupliclickApi {
     await _waitTurn();
     o.headers['Accept'] = 'application/json';
     o.headers['X-Ebsn-Client'] = 'production';
-    o.headers['X-Ebsn-Client-Redirect'] = 'production';
-    final s = _session.ebsnSession;
-    if (s != null && s.isNotEmpty) o.headers['X-Ebsn-Session'] = s;
-    final a = _session.ebsnAccount;
-    if (a != null && a.isNotEmpty) o.headers['X-Ebsn-Account'] = a;
+    o.headers.addAll(config.extraHeaders);
+    if (config.supportsSession) {
+      final s = _session.ebsnSession;
+      if (s != null && s.isNotEmpty) o.headers['X-Ebsn-Session'] = s;
+      final a = _session.ebsnAccount;
+      if (a != null && a.isNotEmpty) o.headers['X-Ebsn-Account'] = a;
+    }
     h.next(o);
   }
 
   Future<void> _onResponse(Response r, ResponseInterceptorHandler h) async {
+    if (!config.supportsSession) return h.next(r);
     var changed = false;
     final newSession = r.headers.value('X-Ebsn-Session');
     if (newSession != null &&
@@ -170,7 +190,7 @@ class DupliclickApi {
       changed = true;
     }
     try {
-      final cookies = await cookieJar.loadForRequest(kEbsnCookieUri);
+      final cookies = await cookieJar.loadForRequest(config.cookieUri);
       final js = cookies.where((c) => c.name == 'JSESSIONID').firstOrNull;
       if (js != null && js.value != _session.jsessionId) {
         _session = _session.copyWith(jsessionId: js.value);
@@ -181,26 +201,30 @@ class DupliclickApi {
     h.next(r);
   }
 
-  Future<void> _onError(DioException e, ErrorInterceptorHandler h) async {
-    final retriable = e.type == DioExceptionType.connectionError ||
-        e.type == DioExceptionType.connectionTimeout ||
-        e.type == DioExceptionType.receiveTimeout ||
-        e.type == DioExceptionType.sendTimeout;
-    if (retriable && e.requestOptions.extra['retried'] != true) {
-      e.requestOptions.extra['retried'] = true;
-      try {
-        final r = await dio.fetch<dynamic>(e.requestOptions);
-        return h.resolve(r);
-      } on DioException catch (e2) {
-        return h.next(e2);
-      }
-    }
-    h.next(e);
-  }
-
   // ---- chiamate di base ---------------------------------------------------
 
   Future<Map<String, dynamic>> _request(
+    String method,
+    String path, {
+    Map<String, dynamic>? query,
+  }) async {
+    for (var attempt = 0;; attempt++) {
+      try {
+        return await _requestOnce(method, path, query: query);
+      } on ApiException catch (e) {
+        final retriable = e is NetworkException ||
+            (config.retryServerErrors &&
+                e is ApiServerException &&
+                e.statusCode == null);
+        if (!retriable || attempt >= config.maxRetries) rethrow;
+        debugPrint('${config.chain.serviceName}: nuovo tentativo '
+            '${attempt + 1}/${config.maxRetries} per $path ($e)');
+        await sleep(config.backoff(attempt + 1));
+      }
+    }
+  }
+
+  Future<Map<String, dynamic>> _requestOnce(
     String method,
     String path, {
     Map<String, dynamic>? query,
@@ -221,31 +245,34 @@ class DupliclickApi {
       onSessionExpired?.call();
       throw const SessionExpiredException();
     }
-    final body = r.data;
-    Map<String, dynamic>? json;
-    // Content-Type è text/html ma il corpo è JSON.
-    if (body is String) {
-      try {
-        json = asMap(jsonDecode(body));
-      } on FormatException {
-        json = null;
-      }
-    } else {
-      json = asMap(body);
-    }
+    final json = decodeBody(r.data);
     if (code >= 400) {
       throw ApiServerException(
-        _errorText(json) ?? 'Errore HTTP $code da DupliClick',
+        _errorText(json) ?? 'Errore HTTP $code da ${config.chain.serviceName}',
         statusCode: code,
       );
     }
     if (json == null) throw const ApiFormatException('il corpo non è JSON');
     final status = asInt(asMap(json['response'])?['status']);
     if (status != null && status != 0) {
-      throw ApiServerException(
-          _errorText(json) ?? 'DupliClick ha risposto con stato $status');
+      throw ApiServerException(_errorText(json) ??
+          '${config.chain.serviceName} ha risposto con stato $status');
     }
     return json;
+  }
+
+  /// Il Content-Type è text/html e possono esserci righe vuote prima del JSON.
+  static Map<String, dynamic>? decodeBody(Object? body) {
+    if (body is String) {
+      final s = body.trimLeft();
+      if (s.isEmpty) return null;
+      try {
+        return asMap(jsonDecode(s));
+      } on FormatException {
+        return null;
+      }
+    }
+    return asMap(body);
   }
 
   String? _errorText(Map<String, dynamic>? json) {
@@ -268,7 +295,10 @@ class DupliclickApi {
     final data = _data(json);
     final raw = data['products'];
     if (raw is! List) throw const ApiFormatException('manca "data.products"');
-    final products = raw.map(Product.fromApi).whereType<Product>().toList();
+    final products = raw
+        .map((p) => Product.fromApi(p, chain: chain))
+        .whereType<Product>()
+        .toList();
     if (raw.isNotEmpty && products.isEmpty) {
       throw const ApiFormatException('prodotti senza i campi attesi');
     }
@@ -281,6 +311,13 @@ class DupliclickApi {
     );
   }
 
+  void _requireSession() {
+    if (!config.supportsSession) {
+      throw ApiServerException(
+          '${config.chain.serviceName} non supporta questa operazione');
+    }
+  }
+
   // ---- endpoint -----------------------------------------------------------
 
   /// Prodotto per EAN (match esatto). NB: `q=<EAN>` non funziona.
@@ -288,21 +325,47 @@ class DupliclickApi {
     final json = await _request('GET', '/products',
         query: {'barcode': ean, 'page_size': 1});
     final page = _parsePage(json);
-    return page.products
-            .where((p) => p.barcode == ean)
-            .firstOrNull ??
+    return page.products.where((p) => p.barcode == ean).firstOrNull ??
         page.products.firstOrNull;
   }
 
-  /// Ricerca testuale; con `q` vuoto restituisce l'intero listino.
+  /// Ricerca testuale. Con `q` vuoto DupliClick restituisce l'intero
+  /// listino, Click&Coop un errore.
   Future<ProductPage> searchProducts(String q,
       {int page = 1, int pageSize = 24}) async {
+    if (q.trim().isEmpty && !config.emptyQueryListsAll) {
+      return const ProductPage(products: [], page: 1, totPages: 1, totItems: 0);
+    }
     final json = await _request('GET', '/products',
         query: {'q': q, 'page': page, 'page_size': pageSize});
     return _parsePage(json);
   }
 
-  /// Punti vendita con ritiro in negozio.
+  /// Prodotti di una categoria.
+  Future<ProductPage> productsByCategory(int categoryId,
+      {int page = 1, int pageSize = 24}) async {
+    final json = await _request('GET', '/products', query: {
+      'parent_category_id': categoryId,
+      'page': page,
+      'page_size': pageSize,
+    });
+    return _parsePage(json);
+  }
+
+  /// Albero delle categorie (`data.categories`).
+  Future<List<EbsnCategory>> categories() async {
+    final data = _data(await _request('GET', '/category'));
+    final raw = data['categories'];
+    if (raw is! List) throw const ApiFormatException('manca "data.categories"');
+    return [
+      for (final c in raw.map(asMap).whereType<Map<String, dynamic>>())
+        if (asInt(c['categoryId']) != null && asString(c['name']) != null)
+          EbsnCategory(asInt(c['categoryId'])!, asString(c['name'])!,
+              asString(c['slug'])),
+    ];
+  }
+
+  /// Punti vendita / punti di ritiro.
   Future<List<Store>> deliveryServiceList({int deliveryServiceId = 1}) async {
     final json = await _request('GET', '/address/delivery-service-list',
         query: {'delivery_service_id': deliveryServiceId});
@@ -325,12 +388,13 @@ class DupliclickApi {
     return list.map(Store.fromApi).whereType<Store>().toList();
   }
 
-  /// Indirizzo attivo nel carrello (richiede login).
+  /// Indirizzo attivo nel carrello (richiede login, solo DupliClick).
   Future<CartAddress?> cartAddress() async {
+    _requireSession();
     final json = await _request('GET', '/cart/view');
     final data = _data(json);
-    final addr = data['shippingAddress'] ??
-        asMap(data['cart'])?['shippingAddress'];
+    final addr =
+        data['shippingAddress'] ?? asMap(data['cart'])?['shippingAddress'];
     final parsed = CartAddress.fromApi(addr);
     if (parsed == null) {
       debugPrint('cart/view senza shippingAddress: chiavi ${data.keys}');
@@ -338,12 +402,13 @@ class DupliclickApi {
     return parsed;
   }
 
-  /// Cambia il punto vendita del carrello (richiede login).
+  /// Cambia il punto vendita del carrello (richiede login, solo DupliClick).
   Future<void> selectAddress(
     int addressId, {
     String addressType = 'work',
     int deliveryServiceId = 1,
   }) async {
+    _requireSession();
     await _request('POST', '/user-address/select', query: {
       'address_type': addressType,
       'address_id': addressId,

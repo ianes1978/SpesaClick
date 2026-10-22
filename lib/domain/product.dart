@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../data/json_utils.dart';
+import 'chain.dart';
 import 'price_quote.dart';
 
 part 'product.freezed.dart';
@@ -26,21 +27,31 @@ abstract class Product with _$Product {
     String? category,
     String? thumbUrl,
     String? imageUrl,
+    @Default(Chain.poli) Chain chain,
+
+    /// Listino applicato (`priceListName`, solo Click&Coop).
+    String? priceListName,
   }) = _Product;
 
   factory Product.fromJson(Map<String, dynamic> json) =>
       _$ProductFromJson(json);
 
-  /// Costruisce un prodotto da un elemento di `data.products` dell'API
-  /// DupliClick. Tollera campi mancanti, null e numeri come stringhe.
+  /// Costruisce un prodotto da un elemento di `data.products` dell'API ebsn.
+  /// Tollera campi mancanti, null e numeri come stringhe.
   /// Restituisce null se mancano i campi indispensabili.
-  static Product? fromApi(Object? raw) {
+  ///
+  /// Prezzi: `priceDisplay` è il prezzo di vendita attuale. Su DupliClick
+  /// `price == priceDisplay` e il prezzo pieno in promo sta in
+  /// `priceStandardDisplay`; su Click&Coop `price` è il prezzo pieno.
+  /// Prendendo il massimo fra i due si normalizzano entrambe le catene.
+  static Product? fromApi(Object? raw, {Chain chain = Chain.poli}) {
     if (raw is! Map) return null;
     final m = raw.cast<String, dynamic>();
     final id = asInt(m['productId']);
     final barcode = asString(m['barcode']);
     final name = asString(m['name']);
-    final price = asDouble(m['priceDisplay']) ?? asDouble(m['price']);
+    final fullPrice = asDouble(m['price']);
+    final price = asDouble(m['priceDisplay']) ?? fullPrice;
     if (id == null || barcode == null || name == null || price == null) {
       return null;
     }
@@ -52,22 +63,43 @@ abstract class Product with _$Product {
     if (crumbs is List && crumbs.isNotEmpty && crumbs.first is Map) {
       category = asString((crumbs.first as Map)['name']);
     }
-    final standard = asDouble(m['priceStandardDisplay']);
+    double? listPrice;
+    for (final c in [asDouble(m['priceStandardDisplay']), fullPrice]) {
+      if (c != null && c > price + 0.001 && (listPrice == null || c > listPrice)) {
+        listPrice = c;
+      }
+    }
+    final packageDescr = chain == Chain.coop
+        ? asString(m['description']) ?? asString(infos['PACKAGE_DESCR'])
+        : asString(infos['PACKAGE_DESCR']);
     return Product(
       productId: id,
       barcode: barcode,
       name: name,
       brand: asString(m['shortDescr']),
-      packageDescr: asString(infos['PACKAGE_DESCR']),
+      packageDescr: packageDescr,
       tipologia: asString(infos['TIPOLOGIA']),
       price: price,
-      listPrice: (standard != null && standard > price + 0.001) ? standard : null,
+      listPrice: listPrice,
       pricePerKg: asDouble(m['priceUmDisplay']),
-      weightUnit: asString(m['weightUnitDisplay']),
+      weightUnit: normalizeUnit(asString(m['weightUnitDisplay'])),
       category: category,
       thumbUrl: asString(m['mediaURL']),
       imageUrl: asString(m['mediaURLMedium']) ?? asString(m['mediaURL']),
+      chain: chain,
+      priceListName: asString(m['priceListName']),
     );
+  }
+
+  /// "KG" → "kg", "LT" → "l", "GR" → "g".
+  static String? normalizeUnit(String? u) {
+    if (u == null) return null;
+    final l = u.toLowerCase();
+    return switch (l) {
+      'lt' || 'lt.' || 'litri' => 'l',
+      'gr' || 'gr.' => 'g',
+      _ => l,
+    };
   }
 
   /// Sfuso e Confezione sono a peso variabile: si paga a kg.
@@ -86,5 +118,6 @@ abstract class Product with _$Product {
         source: source,
         readAt: readAt,
         storeId: storeId,
+        chain: chain,
       );
 }

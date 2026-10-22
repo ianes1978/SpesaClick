@@ -4,10 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/api_exceptions.dart';
+import '../../data/ebsn_api.dart';
 import '../../data/product_repository.dart';
+import '../../domain/chain.dart';
 import '../../domain/price_quote.dart';
 import '../../domain/product.dart';
+import '../cart/scan_handler.dart';
 import '../providers.dart';
+import '../widgets/chain_switcher.dart';
 import '../widgets/format.dart';
 import '../widgets/product_image.dart';
 import '../widgets/store_selector.dart';
@@ -27,6 +31,11 @@ const kTrentinoHighlights = <String>[
   'Marzadro',
   'farina Storo',
 ];
+
+/// Categorie Click&Coop (raccolte comprese, utili per sfogliare le promo).
+final coopCategoriesProvider = FutureProvider<List<EbsnCategory>>((ref) => ref
+    .watch(productRepoProvider(Chain.coop))
+    .categories(includeCollections: true));
 
 class CatalogScreen extends ConsumerStatefulWidget {
   const CatalogScreen({super.key});
@@ -49,6 +58,9 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
   String? _error;
   String? _category;
   int _generation = 0;
+
+  /// Categoria Click&Coop che si sta sfogliando (al posto della ricerca).
+  EbsnCategory? _browse;
 
   @override
   void initState() {
@@ -73,19 +85,20 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
     _debounce = Timer(const Duration(milliseconds: 300), () => _start(v));
   }
 
-  void _start(String q) {
+  void _start(String q, {EbsnCategory? browse}) {
     q = q.trim();
     setState(() {
       _generation++;
-      _query = q;
+      _browse = browse;
+      _query = browse != null ? browse.name : q;
       _products.clear();
       _page = 0;
-      _hasMore = q.isNotEmpty;
+      _hasMore = _query.isNotEmpty;
       _error = null;
       _category = null;
       _loading = false;
     });
-    if (q.isNotEmpty) _loadMore();
+    if (_query.isNotEmpty) _loadMore();
   }
 
   Future<void> _loadMore() async {
@@ -93,9 +106,11 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
     final gen = _generation;
     setState(() => _loading = true);
     try {
-      final r = await ref
-          .read(productRepoProvider)
-          .search(_query, page: _page + 1);
+      final repo = ref.read(productRepoProvider(ref.read(activeChainProvider)));
+      final browse = _browse;
+      final r = browse != null
+          ? (page: await repo.byCategory(browse.id, page: _page + 1), offline: false)
+          : await repo.search(_query, page: _page + 1);
       if (gen != _generation || !mounted) return;
       setState(() {
         _products.addAll(r.page.products);
@@ -115,21 +130,29 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
     }
   }
 
-  void _add(Product p) {
-    final storeId = ref.read(sessionProvider).storeId;
+  Future<void> _add(Product p) async {
+    final storeId =
+        p.chain == Chain.poli ? ref.read(sessionProvider).storeId : null;
     final source = _offline
         ? PriceSource.offline
         : (storeId != null ? PriceSource.store : PriceSource.online);
-    ref.read(cartProvider.notifier).add(
+    final item = ref.read(cartProvider.notifier).add(
         LookupResult(p, p.quote(source, DateTime.now(), storeId: storeId)));
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       duration: const Duration(seconds: 1),
       content: Text('Aggiunto: ${p.name}'),
     ));
+    final outcome = ScanAdded(item, isLabel: false);
+    if (outcome.needsWeight) await completeWeight(context, ref, outcome);
   }
 
   @override
   Widget build(BuildContext context) {
+    final chain = ref.watch(activeChainProvider);
+    ref.listen(activeChainProvider, (_, _) {
+      _search.clear();
+      _start('');
+    });
     final categories = _products
         .map((p) => p.category)
         .whereType<String>()
@@ -142,15 +165,18 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Catalogo'),
-        actions: const [Flexible(child: StoreSelector())],
+        title: const ChainSwitcher(),
+        titleSpacing: 8,
+        actions: [
+          if (chain == Chain.poli) const Flexible(child: StoreSelector()),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(64),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
             child: SearchBar(
               controller: _search,
-              hintText: 'Cerca prodotti…',
+              hintText: 'Cerca su ${chain.serviceName}…',
               leading: const Icon(Icons.search),
               trailing: [
                 if (_search.text.isNotEmpty)
@@ -168,11 +194,27 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
           ),
         ),
       ),
-      body: _query.isEmpty
-          ? _Highlights(onTap: (q) {
-              _search.text = q;
-              _start(q);
-            })
+      body: Column(children: [
+        if (chain == Chain.coop) const CoopPriceNotice(),
+        if (_browse != null)
+          ListTile(
+            dense: true,
+            leading: const Icon(Icons.category_outlined),
+            title: Text(_browse!.name),
+            trailing: IconButton(
+                icon: const Icon(Icons.close), onPressed: () => _start('')),
+          ),
+        Expanded(child: _query.isEmpty
+          ? _Highlights(
+              chain: chain,
+              onTap: (q) {
+                _search.text = q;
+                _start(q);
+              },
+              onCategory: (c) {
+                _search.clear();
+                _start('', browse: c);
+              })
           : Column(
               children: [
                 if (categories.length > 1)
@@ -229,7 +271,8 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
                     child: Text('Nessun prodotto trovato.'),
                   ),
               ],
-            ),
+            )),
+      ]),
     );
   }
 }
@@ -271,12 +314,16 @@ class _ProductTile extends StatelessWidget {
   }
 }
 
-class _Highlights extends StatelessWidget {
-  const _Highlights({required this.onTap});
+class _Highlights extends ConsumerWidget {
+  const _Highlights(
+      {required this.chain, required this.onTap, required this.onCategory});
+  final Chain chain;
   final void Function(String) onTap;
+  final void Function(EbsnCategory) onCategory;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cats = chain == Chain.coop ? ref.watch(coopCategoriesProvider) : null;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -295,6 +342,24 @@ class _Highlights extends StatelessWidget {
               ),
           ],
         ),
+        if (cats != null) ...[
+          const SizedBox(height: 24),
+          Text('Reparti Click&Coop',
+              style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          cats.when(
+            data: (list) => Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final c in list)
+                  ActionChip(label: Text(c.name), onPressed: () => onCategory(c)),
+              ],
+            ),
+            loading: () => const LinearProgressIndicator(),
+            error: (e, _) => Text('Reparti non disponibili: $e'),
+          ),
+        ],
         const SizedBox(height: 24),
         Text('Tocca un prodotto per aggiungerlo al carrello.',
             style: Theme.of(context).textTheme.bodySmall),

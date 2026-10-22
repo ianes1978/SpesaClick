@@ -20,6 +20,8 @@ _Product _$ProductFromJson(Map<String, dynamic> json) => _Product(
   category: json['category'] as String?,
   thumbUrl: json['thumbUrl'] as String?,
   imageUrl: json['imageUrl'] as String?,
+  chain: $enumDecodeNullable(_$ChainEnumMap, json['chain']) ?? Chain.poli,
+  priceListName: json['priceListName'] as String?,
 );
 
 Map<String, dynamic> _$ProductToJson(_Product instance) => <String, dynamic>{
@@ -36,4 +38,8 @@ Map<String, dynamic> _$ProductToJson(_Product instance) => <String, dynamic>{
   'category': ?instance.category,
   'thumbUrl': ?instance.thumbUrl,
   'imageUrl': ?instance.imageUrl,
+  'chain': _$ChainEnumMap[instance.chain]!,
+  'priceListName': ?instance.priceListName,
 };
+
+const _$ChainEnumMap = {Chain.poli: 'poli', Chain.coop: 'coop'};

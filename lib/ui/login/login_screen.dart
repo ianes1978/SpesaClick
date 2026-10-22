@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/dupliclick_api.dart';
+import '../../data/ebsn_api.dart';
 import '../providers.dart';
 
 /// "Collega DupliClick": l'utente fa login nel sito vero (reCAPTCHA compreso,
