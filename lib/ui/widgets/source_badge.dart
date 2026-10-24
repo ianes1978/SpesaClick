@@ -24,10 +24,14 @@ class SourceBadge extends StatelessWidget {
     if (quote.chain == Chain.coop) text = 'Coop · $text';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration:
-          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-      child: Text(text,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: fg)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: fg),
+      ),
     );
   }
 }

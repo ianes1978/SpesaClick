@@ -21,27 +21,39 @@ String toCsv(List<String> header, Iterable<List<Object?>> rows) {
 }
 
 String cartToCsv(List<CartItem> items) => toCsv(
-      [
-        'catena', 'ean', 'nome', 'marca', 'formato', 'quantita', 'peso_kg',
-        'prezzo_unitario', 'prezzo_kg', 'bollino_%', 'totale', 'fonte',
-        'letto_il',
-      ],
-      items.map((i) => [
-            i.product.chain.name,
-            i.product.barcode,
-            i.product.name,
-            i.product.brand,
-            i.product.packageDescr,
-            i.quantity,
-            i.weightKg?.toStringAsFixed(3),
-            i.quote.price,
-            i.effectivePricePerKg,
-            i.discountPercent,
-            lineTotals(i).net,
-            i.quote.source.name,
-            i.quote.readAt.toIso8601String(),
-          ]),
-    );
+  [
+    'catena',
+    'ean',
+    'nome',
+    'marca',
+    'formato',
+    'quantita',
+    'peso_kg',
+    'prezzo_unitario',
+    'prezzo_kg',
+    'bollino_%',
+    'totale',
+    'fonte',
+    'letto_il',
+  ],
+  items.map(
+    (i) => [
+      i.product.chain.name,
+      i.product.barcode,
+      i.product.name,
+      i.product.brand,
+      i.product.packageDescr,
+      i.quantity,
+      i.weightKg?.toStringAsFixed(3),
+      i.quote.price,
+      i.effectivePricePerKg,
+      i.discountPercent,
+      lineTotals(i).net,
+      i.quote.source.name,
+      i.quote.readAt.toIso8601String(),
+    ],
+  ),
+);
 
 String cartToJson(List<CartItem> items) =>
     const JsonEncoder.withIndent('  ').convert({
@@ -51,26 +63,37 @@ String cartToJson(List<CartItem> items) =>
     });
 
 String productsToCsv(List<Product> products) => toCsv(
-      [
-        'catena', 'product_id', 'ean', 'nome', 'marca', 'formato',
-        'tipologia', 'prezzo', 'prezzo_pieno', 'prezzo_kg', 'unita',
-        'categoria',
-      ],
-      products.map((p) => [
-            p.chain.name,
-            p.productId,
-            p.barcode,
-            p.name,
-            p.brand,
-            p.packageDescr,
-            p.tipologia,
-            p.price,
-            p.listPrice,
-            p.pricePerKg,
-            p.weightUnit,
-            p.category,
-          ]),
-    );
+  [
+    'catena',
+    'product_id',
+    'ean',
+    'nome',
+    'marca',
+    'formato',
+    'tipologia',
+    'prezzo',
+    'prezzo_pieno',
+    'prezzo_kg',
+    'unita',
+    'categoria',
+  ],
+  products.map(
+    (p) => [
+      p.chain.name,
+      p.productId,
+      p.barcode,
+      p.name,
+      p.brand,
+      p.packageDescr,
+      p.tipologia,
+      p.price,
+      p.listPrice,
+      p.pricePerKg,
+      p.weightUnit,
+      p.category,
+    ],
+  ),
+);
 
 String productsToJson(List<Product> products) =>
     jsonEncode(products.map((p) => p.toJson()).toList());

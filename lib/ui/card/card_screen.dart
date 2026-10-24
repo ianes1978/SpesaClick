@@ -9,7 +9,8 @@ import '../../domain/ean.dart';
 import '../providers.dart';
 
 final loyaltyCardProvider = FutureProvider<String?>(
-    (ref) => ref.watch(sessionStorageProvider).loyaltyCard());
+  (ref) => ref.watch(sessionStorageProvider).loyaltyCard(),
+);
 
 class CardScreen extends ConsumerStatefulWidget {
   const CardScreen({super.key});
@@ -32,9 +33,11 @@ class _CardScreenState extends ConsumerState<CardScreen> {
     final input = _ctrl.text.replaceAll(RegExp(r'\s'), '');
     final full = completeEan13(input);
     if (full == null) {
-      setState(() => _error = input.length == 13
-          ? 'Cifra di controllo errata'
-          : 'Inserisci 12 o 13 cifre');
+      setState(
+        () => _error = input.length == 13
+            ? 'Cifra di controllo errata'
+            : 'Inserisci 12 o 13 cifre',
+      );
       return;
     }
     setState(() => _error = null);
@@ -42,8 +45,9 @@ class _CardScreenState extends ConsumerState<CardScreen> {
     ref.invalidate(loyaltyCardProvider);
     _ctrl.clear();
     if (mounted && input.length == 12) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Cifra di controllo calcolata: ${full[12]}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Cifra di controllo calcolata: ${full[12]}')),
+      );
     }
   }
 
@@ -62,17 +66,19 @@ class _CardScreenState extends ConsumerState<CardScreen> {
                 onTap: () => context.push('/card/show'),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Column(children: [
-                    BarcodeWidget(
-                      barcode: Barcode.ean13(),
-                      data: card,
-                      height: 100,
-                      color: Colors.black,
-                      backgroundColor: Colors.white,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text('Tocca per mostrarla alla cassa'),
-                  ]),
+                  child: Column(
+                    children: [
+                      BarcodeWidget(
+                        barcode: Barcode.ean13(),
+                        data: card,
+                        height: 100,
+                        color: Colors.black,
+                        backgroundColor: Colors.white,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text('Tocca per mostrarla alla cassa'),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -86,8 +92,10 @@ class _CardScreenState extends ConsumerState<CardScreen> {
             ),
             const Divider(height: 32),
           ],
-          Text(card == null ? 'Aggiungi la tua tessera' : 'Cambia tessera',
-              style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            card == null ? 'Aggiungi la tua tessera' : 'Cambia tessera',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 8),
           TextField(
             controller: _ctrl,
@@ -130,9 +138,9 @@ class _CardFullscreenState extends ConsumerState<CardFullscreen> {
 
   @override
   void dispose() {
-    ScreenBrightness.instance
-        .resetApplicationScreenBrightness()
-        .catchError((_) {});
+    ScreenBrightness.instance.resetApplicationScreenBrightness().catchError(
+      (_) {},
+    );
     super.dispose();
   }
 
@@ -148,8 +156,9 @@ class _CardFullscreenState extends ConsumerState<CardFullscreen> {
             child: card == null
                 ? const Text('Nessuna tessera')
                 : RotatedBox(
-                    quarterTurns:
-                        MediaQuery.of(context).size.width < 500 ? 1 : 0,
+                    quarterTurns: MediaQuery.of(context).size.width < 500
+                        ? 1
+                        : 0,
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: BarcodeWidget(

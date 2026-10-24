@@ -22,11 +22,11 @@ enum PriceSource {
 
 extension PriceSourceLabel on PriceSource {
   String get badge => switch (this) {
-        PriceSource.store => 'prezzo PV',
-        PriceSource.online => 'online',
-        PriceSource.label => 'etichetta',
-        PriceSource.offline => 'offline',
-      };
+    PriceSource.store => 'prezzo PV',
+    PriceSource.online => 'online',
+    PriceSource.label => 'etichetta',
+    PriceSource.offline => 'offline',
+  };
 }
 
 @freezed

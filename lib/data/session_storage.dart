@@ -5,7 +5,7 @@ import 'ebsn_api.dart';
 /// Conserva la sessione DupliClick nello storage sicuro del sistema.
 class SessionStorage {
   SessionStorage([FlutterSecureStorage? storage])
-      : _s = storage ?? const FlutterSecureStorage();
+    : _s = storage ?? const FlutterSecureStorage();
 
   final FlutterSecureStorage _s;
 
@@ -15,10 +15,10 @@ class SessionStorage {
   static const _kCard = 'loyalty_card';
 
   Future<EbsnSession> load() async => EbsnSession(
-        jsessionId: await _s.read(key: _kJs),
-        ebsnSession: await _s.read(key: _kSession),
-        ebsnAccount: await _s.read(key: _kAccount),
-      );
+    jsessionId: await _s.read(key: _kJs),
+    ebsnSession: await _s.read(key: _kSession),
+    ebsnAccount: await _s.read(key: _kAccount),
+  );
 
   Future<void> save(EbsnSession s) async {
     await _write(_kJs, s.jsessionId);

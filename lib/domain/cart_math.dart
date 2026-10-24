@@ -26,7 +26,7 @@ class LineTotals {
 /// negozio, mantenendo quantità, peso e bollino della riga.
 LineTotals lineTotals(CartItem item, {PriceQuote? quote}) {
   final q = quote ?? item.quote;
-  final useOther = quote != null;
+  final useOther = quote != null && quote != item.quote;
   double gross;
   if (item.isVariableWeight) {
     final ppk = useOther ? q.pricePerKg : item.effectivePricePerKg;
@@ -66,8 +66,12 @@ class CartTotals {
 
   double get saving => round2(stickerSaving + promoSaving);
 
-  static const empty =
-      CartTotals(total: 0, pieces: 0, stickerSaving: 0, promoSaving: 0);
+  static const empty = CartTotals(
+    total: 0,
+    pieces: 0,
+    stickerSaving: 0,
+    promoSaving: 0,
+  );
 }
 
 CartTotals cartTotals(Iterable<CartItem> items) {
@@ -100,8 +104,10 @@ class OtherStoreTotal {
 /// Totale del carrello in un altro negozio o catena. [quotes] è indicizzato
 /// con [keyOf] (di default il barcode del prodotto).
 OtherStoreTotal otherStoreTotal(
-    Iterable<CartItem> items, Map<String, PriceQuote> quotes,
-    {String Function(CartItem)? keyOf}) {
+  Iterable<CartItem> items,
+  Map<String, PriceQuote> quotes, {
+  String Function(CartItem)? keyOf,
+}) {
   final key = keyOf ?? (CartItem i) => i.product.barcode;
   var total = 0.0;
   var missing = 0;

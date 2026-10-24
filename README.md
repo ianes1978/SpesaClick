@@ -18,7 +18,9 @@ subito il prezzo a **DupliClick** (Poli, prezzo del punto vendita scelto) o a
 | **Etichette bilancia** | EAN-13 che inizia con `2`: `2` + articolo (6) + centesimi (5) + controllo. Il prodotto si cerca con i primi 7 caratteri + `000000`; il prezzo stampato è il totale della riga, peso = totale / prezzo al kg. |
 | **Righe del carrello** | Foto, nome, marca, formato, prezzo unitario, badge della fonte (*prezzo PV* / *online* / *etichetta* / *offline · data*), quantità +/−, prezzo pieno barrato se in promo, bollini −30% / −50%, dialogo peso ↔ totale per il peso variabile. Scorri a sinistra per eliminare una riga. |
 | **Riepilogo** | Totale, pezzi, risparmio (bollini + promo), totale nell'altro negozio e differenza. |
-| **Due catene** | In alto scegli **Poli** o **Coop**: scanner e catalogo usano quella catena. Ogni riga mostra anche il prezzo dell'altra catena (in verde se qui costa meno, in rosso se costa di più) e il riepilogo dice "da Coop spenderesti X € in meno" / "qui risparmi X €". |
+| **Negozi nel confronto** | In **Negozi** (in alto nel carrello) scegli una lista di negozi fra le catene disponibili: listino online DupliClick, i punti vendita Poli di Trento, listino online Click&Coop. Una catena senza negozi selezionati resta fuori dal confronto. L'ordine conta: il primo è quello proposto per primo. |
+| **Scansione multi-negozio** | Il codice viene cercato in tutti i negozi selezionati; se il prodotto c'è in più negozi l'app chiede quale prezzo usare (si può disattivare: allora vale il primo della lista). Ogni riga mostra il prezzo negli altri negozi e il riepilogo il totale in ognuno, con il più conveniente evidenziato. |
+| **Ricerca multi-negozio** | Il catalogo cerca in tutti i negozi selezionati e raggruppa per EAN; i filtri in alto mostrano un negozio alla volta. |
 | **Cambio negozio e confronto** | Selettore del punto vendita in alto e confronto IperPoli ↔ Gardolo (vedi avvertenze sotto). |
 | **Catalogo** | Ricerca istantanea (debounce di 300 ms) con paginazione infinita, filtri per categoria e la sezione "In evidenza" con prodotti trentini. Un tocco aggiunge il prodotto al carrello. |
 | **Offline** | "Scarica listino" salva l'intero listino (8.400+ prodotti, una richiesta ogni 350 ms). Senza rete o senza sessione lo scanner usa questo listino. |
@@ -59,6 +61,18 @@ analisi e test, poi compila l'APK.
 Per installarlo, abilita sul telefono "Installa app sconosciute" per il browser
 o per il file manager. L'APK è firmato con la chiave di debug: va bene per uso
 personale, non per il Play Store.
+
+## Negozi e prezzi in diretta
+
+| Negozio | Da dove arriva il prezzo |
+|---|---|
+| Poli · listino online | DupliClick **senza** sessione (client separato), anche quando sei collegato |
+| Poli · punto vendita attivo nel carrello DupliClick | In diretta, con login |
+| Poli · altri punti vendita | Solo dalla cache (6 ore): "Aggiorna prezzi dei negozi Poli" nel riepilogo sposta il carrello DupliClick reale su ogni negozio, legge i prezzi e **ripristina** quello originale (con conferma). Nella ricerca testuale non sono interrogabili. |
+| Coop · listino online | Click&Coop, uguale per tutti i punti di ritiro |
+
+Lidl e MD (tramite Everli) non sono ancora supportati: servono le chiamate
+API di Everli. Aldi non è su Everli e non pubblica un listino online.
 
 ## Click&Coop (Coop Trentino)
 

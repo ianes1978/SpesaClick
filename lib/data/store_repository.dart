@@ -9,7 +9,11 @@ import 'product_repository.dart';
 
 /// Punti vendita, cambio negozio e confronto prezzi.
 class StoreRepository {
-  StoreRepository({required this.api, required this.db, required this.products});
+  StoreRepository({
+    required this.api,
+    required this.db,
+    required this.products,
+  });
 
   final EbsnApi api;
   final AppDatabase db;
@@ -30,13 +34,14 @@ class StoreRepository {
     }
     try {
       final all = await api.deliveryServiceList();
-      final tn = all
-          .where((s) => (s.province ?? '').toUpperCase() == 'TN')
-          .toList()
-        ..sort((a, b) => a.name.compareTo(b.name));
+      final tn =
+          all.where((s) => (s.province ?? '').toUpperCase() == 'TN').toList()
+            ..sort((a, b) => a.name.compareTo(b.name));
       final result = tn.isEmpty ? kKnownTrentoStores : tn;
       await db.setValue(
-          _kStores, jsonEncode(result.map((s) => s.toJson()).toList()));
+        _kStores,
+        jsonEncode(result.map((s) => s.toJson()).toList()),
+      );
       await db.setValue(_kStoresAt, DateTime.now().toIso8601String());
       return result;
     } on ApiException {
@@ -62,14 +67,17 @@ class StoreRepository {
     final after = await api.cartAddress();
     if (after?.addressId != addressId) {
       throw ApiServerException(
-          'Il negozio non risulta cambiato (attivo: ${after?.addressName ?? '?'})');
+        'Il negozio non risulta cambiato (attivo: ${after?.addressName ?? '?'})',
+      );
     }
     return after;
   }
 
   /// Prezzi già in cache per un negozio, per barcode.
   Future<Map<String, PriceQuote>> cachedQuotes(
-      int storeId, Iterable<String> eans) async {
+    int storeId,
+    Iterable<String> eans,
+  ) async {
     final out = <String, PriceQuote>{};
     for (final e in eans.toSet()) {
       final q = await products.cachedQuote(storeId, e);
@@ -97,7 +105,9 @@ class StoreRepository {
 
     final orig = await api.cartAddress();
     if (orig == null) {
-      throw const ApiFormatException('negozio attivo non leggibile da cart/view');
+      throw const ApiFormatException(
+        'negozio attivo non leggibile da cart/view',
+      );
     }
     var active = orig.addressId;
     final type = orig.addressType ?? 'work';
@@ -111,8 +121,11 @@ class StoreRepository {
         if (todo.isEmpty) continue;
         if (active != s) {
           onProgress?.call('Passo al negozio $s…');
-          await api.selectAddress(s,
-              addressType: type, deliveryServiceId: dsid);
+          await api.selectAddress(
+            s,
+            addressType: type,
+            deliveryServiceId: dsid,
+          );
           active = s;
         }
         for (var i = 0; i < todo.length; i++) {
@@ -124,15 +137,19 @@ class StoreRepository {
     } finally {
       if (active != orig.addressId) {
         onProgress?.call('Ripristino il negozio originale…');
-        await api.selectAddress(orig.addressId,
-            addressType: type, deliveryServiceId: dsid);
+        await api.selectAddress(
+          orig.addressId,
+          addressType: type,
+          deliveryServiceId: dsid,
+        );
       }
     }
     final check = await api.cartAddress();
     if (check?.addressId != orig.addressId) {
       throw ApiServerException(
-          'ATTENZIONE: il negozio originale (${orig.addressName}) non è stato '
-          'ripristinato. Controlla su dupliclick.it.');
+        'ATTENZIONE: il negozio originale (${orig.addressName}) non è stato '
+        'ripristinato. Controlla su dupliclick.it.',
+      );
     }
     return result;
   }

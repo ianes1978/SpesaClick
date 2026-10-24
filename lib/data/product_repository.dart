@@ -47,8 +47,10 @@ class ProductRepository {
 
   /// Raccolte di Click&Coop (prodotti già presenti in altre categorie).
   static const coopCollectionIds = {45294, 46836, 46899};
-  static final _collectionName =
-      RegExp(r'promozion|cashback|sempre gi', caseSensitive: false);
+  static final _collectionName = RegExp(
+    r'promozion|cashback|sempre gi',
+    caseSensitive: false,
+  );
 
   static String storeKey(int? storeId) => storeId?.toString() ?? onlineKey;
 
@@ -72,8 +74,10 @@ class ProductRepository {
 
     final cached = await db.cachedPrice(chain, key, ean);
     if (cached != null && _fresh(cached.readAt)) {
-      return LookupResult(cached.product,
-          cached.product.quote(source, cached.readAt, storeId: storeId));
+      return LookupResult(
+        cached.product,
+        cached.product.quote(source, cached.readAt, storeId: storeId),
+      );
     }
 
     // DupliClick senza sessione: si preferisce il listino scaricato.
@@ -91,8 +95,10 @@ class ProductRepository {
     } on ApiException catch (e) {
       if (e is ApiFormatException) rethrow;
       if (cached != null) {
-        return LookupResult(cached.product,
-            cached.product.quote(source, cached.readAt, storeId: storeId));
+        return LookupResult(
+          cached.product,
+          cached.product.quote(source, cached.readAt, storeId: storeId),
+        );
       }
       final off = await _offline(ean);
       if (off != null) return off;
@@ -104,7 +110,9 @@ class ProductRepository {
     final row = await db.catalogProduct(chain, ean);
     if (row == null) return null;
     return LookupResult(
-        row.product, row.product.quote(PriceSource.offline, row.downloadedAt));
+      row.product,
+      row.product.quote(PriceSource.offline, row.downloadedAt),
+    );
   }
 
   /// Prezzo già in cache (e fresco) per un negozio.
@@ -113,6 +121,10 @@ class ProductRepository {
     if (c == null || !_fresh(c.readAt)) return null;
     return c.product.quote(PriceSource.store, c.readAt, storeId: storeId);
   }
+
+  /// Prodotto in cache per un negozio (anche se non più fresco).
+  Future<Product?> cachedProduct(int storeId, String ean) async =>
+      (await db.cachedPrice(chain, storeKey(storeId), ean))?.product;
 
   /// Legge il prezzo dal server per il negozio attualmente selezionato nel
   /// carrello DupliClick, che deve essere [storeId].
@@ -133,15 +145,22 @@ class ProductRepository {
   }
 
   /// Ricerca nel catalogo; senza rete usa il listino offline.
-  Future<({ProductPage page, bool offline})> search(String q,
-      {int page = 1, int pageSize = 24}) async {
+  Future<({ProductPage page, bool offline})> search(
+    String q, {
+    int page = 1,
+    int pageSize = 24,
+  }) async {
     try {
       final res = await api.searchProducts(q, page: page, pageSize: pageSize);
       await _cacheAll(res.products);
       return (page: res, offline: false);
     } on NetworkException {
-      final list = await db.searchCatalog(chain, q,
-          limit: pageSize, offset: (page - 1) * pageSize);
+      final list = await db.searchCatalog(
+        chain,
+        q,
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+      );
       if (list.isEmpty && page == 1 && await db.catalogCount(chain) == 0) {
         rethrow;
       }
@@ -158,30 +177,40 @@ class ProductRepository {
   }
 
   /// Prodotti di una categoria (online).
-  Future<ProductPage> byCategory(int categoryId,
-      {int page = 1, int pageSize = 24}) async {
-    final res = await api.productsByCategory(categoryId,
-        page: page, pageSize: pageSize);
+  Future<ProductPage> byCategory(
+    int categoryId, {
+    int page = 1,
+    int pageSize = 24,
+  }) async {
+    final res = await api.productsByCategory(
+      categoryId,
+      page: page,
+      pageSize: pageSize,
+    );
     await _cacheAll(res.products);
     return res;
   }
 
   /// Categorie merceologiche, senza le raccolte (promozioni, cashback…).
-  Future<List<EbsnCategory>> categories({bool includeCollections = false}) async {
+  Future<List<EbsnCategory>> categories({
+    bool includeCollections = false,
+  }) async {
     final all = await api.categories();
     if (includeCollections) return all;
     return all
-        .where((c) =>
-            !coopCollectionIds.contains(c.id) &&
-            !_collectionName.hasMatch(c.name))
+        .where(
+          (c) =>
+              !coopCollectionIds.contains(c.id) &&
+              !_collectionName.hasMatch(c.name),
+        )
         .toList();
   }
 
   /// Scarica l'intero listino per l'uso offline.
   Stream<DownloadProgress> downloadCatalog({bool Function()? cancelled}) =>
       api.config.emptyQueryListsAll
-          ? _downloadAll(cancelled)
-          : _downloadByCategory(cancelled);
+      ? _downloadAll(cancelled)
+      : _downloadByCategory(cancelled);
 
   /// DupliClick: `q=` vuoto, 100 per pagina, una richiesta ogni 350 ms.
   Stream<DownloadProgress> _downloadAll(bool Function()? cancelled) async* {
@@ -212,7 +241,8 @@ class ProductRepository {
   /// riprende in due pagine da 40). I doppioni spariscono perché la chiave
   /// del listino è `productId`.
   Stream<DownloadProgress> _downloadByCategory(
-      bool Function()? cancelled) async* {
+    bool Function()? cancelled,
+  ) async* {
     const size = 80, smallSize = 40;
     final start = DateTime.now();
     final cats = await categories();
@@ -226,24 +256,34 @@ class ProductRepository {
         if (cancelled?.call() ?? false) return;
         List<Product> products;
         try {
-          final res = await api.productsByCategory(cat.id,
-              page: page, pageSize: size);
+          final res = await api.productsByCategory(
+            cat.id,
+            page: page,
+            pageSize: size,
+          );
           tot = res.totPages;
           products = res.products;
         } on ApiServerException catch (e) {
           debugPrint('Pagina $page di ${cat.name} fallita ($e): riprovo da 40');
           products = [];
           for (final p in [page * 2 - 1, page * 2]) {
-            final res = await api.productsByCategory(cat.id,
-                page: p, pageSize: smallSize);
+            final res = await api.productsByCategory(
+              cat.id,
+              page: p,
+              pageSize: smallSize,
+            );
             products.addAll(res.products);
             tot = (res.totPages + 1) ~/ 2;
           }
         }
         await db.putCatalog(products, start);
         seen.addAll(products.map((p) => p.productId));
-        yield DownloadProgress(ci, cats.length, seen.length,
-            label: '${cat.name} · pagina $page/$tot');
+        yield DownloadProgress(
+          ci,
+          cats.length,
+          seen.length,
+          label: '${cat.name} · pagina $page/$tot',
+        );
         page++;
       }
     }

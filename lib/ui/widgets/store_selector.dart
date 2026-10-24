@@ -24,10 +24,11 @@ class StoreSelector extends ConsumerWidget {
           onPressed: () => context.push('/login'),
           icon: Icon(Icons.link, color: color, size: 18),
           label: Text(
-              session.status == SessionStatus.expired
-                  ? 'Sessione scaduta · ricollegati'
-                  : 'Prezzi online · collega',
-              style: style),
+            session.status == SessionStatus.expired
+                ? 'Sessione scaduta · ricollegati'
+                : 'Prezzi online · collega',
+            style: style,
+          ),
         );
       case SessionStatus.checking:
         return Text('Verifica…', style: style);
@@ -35,15 +36,21 @@ class StoreSelector extends ConsumerWidget {
         return Text('Offline', style: style);
       case SessionStatus.connected:
         return TextButton.icon(
-          onPressed: () => _pick(context, ref),
+          onPressed: () => pickCartStore(context, ref),
           icon: Icon(Icons.store, color: color, size: 18),
-          label: Text(session.address?.addressName ?? 'Negozio?',
-              style: style, overflow: TextOverflow.ellipsis),
+          label: Text(
+            session.address?.addressName ?? 'Negozio?',
+            style: style,
+            overflow: TextOverflow.ellipsis,
+          ),
         );
     }
   }
+}
 
-  Future<void> _pick(BuildContext context, WidgetRef ref) async {
+/// Cambia il negozio del carrello DupliClick reale (con conferma).
+Future<void> pickCartStore(BuildContext context, WidgetRef ref) async {
+  {
     final current = ref.read(sessionProvider).storeId;
     final stores = await ref.read(storesProvider.future);
     if (!context.mounted) return;
@@ -56,18 +63,23 @@ class StoreSelector extends ConsumerWidget {
           const ListTile(
             title: Text('Punto vendita'),
             subtitle: Text(
-                'Cambia il negozio del tuo carrello DupliClick reale.'),
+              'Cambia il negozio del tuo carrello DupliClick reale.',
+            ),
           ),
           for (final s in stores)
             ListTile(
-              leading: Icon(s.addressId == current
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_off),
+              leading: Icon(
+                s.addressId == current
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_off,
+              ),
               title: Text(s.name),
-              subtitle: Text([s.address, s.city]
-                  .whereType<String>()
-                  .where((e) => e.isNotEmpty)
-                  .join(', ')),
+              subtitle: Text(
+                [
+                  s.address,
+                  s.city,
+                ].whereType<String>().where((e) => e.isNotEmpty).join(', '),
+              ),
               onTap: () => Navigator.pop(ctx, s),
             ),
         ],
@@ -83,7 +95,8 @@ class StoreSelector extends ConsumerWidget {
       final addr = await ref.read(storeRepoProvider).select(chosen.addressId);
       ref.read(sessionProvider.notifier).setAddress(addr);
       messenger.showSnackBar(
-          SnackBar(content: Text('Negozio: ${addr?.addressName}')));
+        SnackBar(content: Text('Negozio: ${addr?.addressName}')),
+      );
     } on ApiException catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
       ref.read(sessionProvider.notifier).verify();
@@ -92,7 +105,10 @@ class StoreSelector extends ConsumerWidget {
 }
 
 /// Avviso prima di toccare il carrello DupliClick reale.
-Future<bool> confirmStoreSwitch(BuildContext context, {bool restore = false}) async {
+Future<bool> confirmStoreSwitch(
+  BuildContext context, {
+  bool restore = false,
+}) async {
   final r = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
@@ -105,11 +121,13 @@ Future<bool> confirmStoreSwitch(BuildContext context, {bool restore = false}) as
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annulla')),
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Annulla'),
+        ),
         FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Procedi')),
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Procedi'),
+        ),
       ],
     ),
   );

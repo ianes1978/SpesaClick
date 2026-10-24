@@ -7,14 +7,14 @@ enum Chain {
   coop;
 
   String get label => switch (this) {
-        Chain.poli => 'Poli',
-        Chain.coop => 'Coop',
-      };
+    Chain.poli => 'Poli',
+    Chain.coop => 'Coop',
+  };
 
   String get serviceName => switch (this) {
-        Chain.poli => 'DupliClick',
-        Chain.coop => 'Click&Coop',
-      };
+    Chain.poli => 'DupliClick',
+    Chain.coop => 'Click&Coop',
+  };
 
   Chain get other => this == Chain.poli ? Chain.coop : Chain.poli;
 }

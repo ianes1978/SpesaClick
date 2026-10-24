@@ -22,13 +22,20 @@ class SeqAdapter implements HttpClientAdapter {
   final requests = <RequestOptions>[];
 
   @override
-  Future<ResponseBody> fetch(RequestOptions options,
-      Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
     requests.add(options);
     final body = bodies[(requests.length - 1).clamp(0, bodies.length - 1)];
-    return ResponseBody.fromString(body, 200, headers: {
-      Headers.contentTypeHeader: ['text/html;charset=UTF-8'],
-    });
+    return ResponseBody.fromString(
+      body,
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['text/html;charset=UTF-8'],
+      },
+    );
   }
 
   @override
@@ -41,10 +48,14 @@ const _flaky =
 String fixture(String name) => File('test/fixtures/$name').readAsStringSync();
 
 ({EbsnApi api, SeqAdapter adapter, List<Duration> waits}) coop(
-    List<String> bodies) {
+  List<String> bodies,
+) {
   final waits = <Duration>[];
-  final api = EbsnApi(EbsnConfig.coop,
-      minInterval: Duration.zero, sleep: (d) async => waits.add(d));
+  final api = EbsnApi(
+    EbsnConfig.coop,
+    minInterval: Duration.zero,
+    sleep: (d) async => waits.add(d),
+  );
   final a = SeqAdapter(bodies);
   api.dio.httpClientAdapter = a;
   return (api: api, adapter: a, waits: waits);
@@ -52,8 +63,10 @@ String fixture(String name) => File('test/fixtures/$name').readAsStringSync();
 
 Product parse(String name) {
   final json = jsonDecode(fixture(name)) as Map<String, dynamic>;
-  return Product.fromApi((json['data']['products'] as List).first,
-      chain: Chain.coop)!;
+  return Product.fromApi(
+    (json['data']['products'] as List).first,
+    chain: Chain.coop,
+  )!;
 }
 
 void main() {
@@ -76,17 +89,19 @@ void main() {
       expect(p.thumbUrl, contains('//photo/'));
     });
 
-    test('promo anche senza priceStandardDisplay (solo price > priceDisplay)',
-        () {
-      final p = Product.fromApi({
-        'productId': 1,
-        'barcode': '1',
-        'name': 'X',
-        'price': '2,00',
-        'priceDisplay': 1.5,
-      }, chain: Chain.coop)!;
-      expect(p.listPrice, 2.0);
-    });
+    test(
+      'promo anche senza priceStandardDisplay (solo price > priceDisplay)',
+      () {
+        final p = Product.fromApi({
+          'productId': 1,
+          'barcode': '1',
+          'name': 'X',
+          'price': '2,00',
+          'priceDisplay': 1.5,
+        }, chain: Chain.coop)!;
+        expect(p.listPrice, 2.0);
+      },
+    );
 
     test('nessuna promo quando price == priceDisplay', () {
       final p = parse('coop_sfuso.json');
@@ -130,8 +145,10 @@ void main() {
       final p = await c.api.productByBarcode('8013755002023');
       expect(p?.price, 1.49);
       final r = c.adapter.requests.single;
-      expect(r.uri.toString(),
-          startsWith('https://www.clickcoop.it/ebsn/api/products?'));
+      expect(
+        r.uri.toString(),
+        startsWith('https://www.clickcoop.it/ebsn/api/products?'),
+      );
       expect(r.queryParameters, {'barcode': '8013755002023', 'page_size': 1});
       expect(r.headers['Accept'], 'application/json');
       expect(r.headers['X-Ebsn-Client'], 'production');
@@ -153,19 +170,26 @@ void main() {
 
     test('dopo 5 nuovi tentativi rinuncia', () async {
       final c = coop([_flaky]);
-      await expectLater(c.api.productByBarcode('1'),
-          throwsA(isA<ApiServerException>()));
+      await expectLater(
+        c.api.productByBarcode('1'),
+        throwsA(isA<ApiServerException>()),
+      );
       expect(c.adapter.requests, hasLength(6));
       expect(c.waits.last, const Duration(milliseconds: 4500));
     });
 
     test('DupliClick non ritenta le risposte con status != 0', () async {
-      final api = EbsnApi(EbsnConfig.poli,
-          minInterval: Duration.zero, sleep: (_) async {});
+      final api = EbsnApi(
+        EbsnConfig.poli,
+        minInterval: Duration.zero,
+        sleep: (_) async {},
+      );
       final a = SeqAdapter([_flaky]);
       api.dio.httpClientAdapter = a;
       await expectLater(
-          api.productByBarcode('1'), throwsA(isA<ApiServerException>()));
+        api.productByBarcode('1'),
+        throwsA(isA<ApiServerException>()),
+      );
       expect(a.requests, hasLength(1));
     });
 
@@ -179,8 +203,11 @@ void main() {
     test('prodotti per categoria usano parent_category_id', () async {
       final c = coop([fixture('coop_promo.json')]);
       await c.api.productsByCategory(45307, page: 2, pageSize: 80);
-      expect(c.adapter.requests.single.queryParameters,
-          {'parent_category_id': 45307, 'page': 2, 'page_size': 80});
+      expect(c.adapter.requests.single.queryParameters, {
+        'parent_category_id': 45307,
+        'page': 2,
+        'page_size': 80,
+      });
     });
 
     test('categorie', () async {
@@ -189,12 +216,16 @@ void main() {
           'response': {'status': 0, 'errors': []},
           'data': {
             'categories': [
-              {'categoryId': 45306, 'name': 'Frutta e verdura', 'slug': 'frutta'},
+              {
+                'categoryId': 45306,
+                'name': 'Frutta e verdura',
+                'slug': 'frutta',
+              },
               {'categoryId': '45294', 'name': 'Promozioni'},
               {'name': 'senza id'},
-            ]
-          }
-        })
+            ],
+          },
+        }),
       ]);
       final cats = await c.api.categories();
       expect(cats.map((c) => c.id), [45306, 45294]);
@@ -214,10 +245,10 @@ void main() {
                 'address1': 'Centro Direzionale Trento Sud',
                 'city': 'Trento',
                 'province': 'TN',
-              }
-            ]
-          }
-        })
+              },
+            ],
+          },
+        }),
       ]);
       final list = await c.api.deliveryServiceList();
       expect(list.single.addressId, 686491);
@@ -228,9 +259,13 @@ void main() {
     test('cart/view e cambio negozio non sono disponibili', () async {
       final c = coop([fixture('coop_promo.json')]);
       await expectLater(
-          c.api.cartAddress(), throwsA(isA<ApiServerException>()));
+        c.api.cartAddress(),
+        throwsA(isA<ApiServerException>()),
+      );
       await expectLater(
-          c.api.selectAddress(686491), throwsA(isA<ApiServerException>()));
+        c.api.selectAddress(686491),
+        throwsA(isA<ApiServerException>()),
+      );
       expect(c.adapter.requests, isEmpty);
     });
   });
@@ -242,7 +277,11 @@ void main() {
       final melinda = CartItem(
         id: 'poli:8007049920131',
         product: const Product(
-            productId: 1, barcode: '8007049920131', name: 'Mousse', price: 1.25),
+          productId: 1,
+          barcode: '8007049920131',
+          name: 'Mousse',
+          price: 1.25,
+        ),
         quote: PriceQuote(price: 1.25, source: PriceSource.store, readAt: t),
         quantity: 2,
         addedAt: t,
@@ -251,23 +290,29 @@ void main() {
         id: 'coop:2877992',
         product: parse('coop_sfuso.json'),
         quote: PriceQuote(
-            price: 23.9,
-            pricePerKg: 23.9,
-            source: PriceSource.online,
-            readAt: t,
-            chain: Chain.coop),
+          price: 23.9,
+          pricePerKg: 23.9,
+          source: PriceSource.online,
+          readAt: t,
+          chain: Chain.coop,
+        ),
         weightKg: 0.25,
         addedAt: t,
       );
       final here = cartTotals([melinda, grana]);
       expect(here.total, 2.50 + 5.98);
-      final o = otherStoreTotal([melinda, grana], {
-        'poli:8007049920131': PriceQuote(
+      final o = otherStoreTotal(
+        [melinda, grana],
+        {
+          'poli:8007049920131': PriceQuote(
             price: 1.19,
             source: PriceSource.online,
             readAt: t,
-            chain: Chain.coop),
-      }, keyOf: (i) => i.id);
+            chain: Chain.coop,
+          ),
+        },
+        keyOf: (i) => i.id,
+      );
       expect(o.total, 2.38 + 5.98);
       expect(o.missing, 1);
     });

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import '../data/api_exceptions.dart';
 import '../data/database.dart';
 import '../data/ebsn_api.dart';
 import '../data/ebsn_config.dart';
+import '../data/price_service.dart';
 import '../data/product_repository.dart';
 import '../data/session_storage.dart';
 import '../data/store_repository.dart';
@@ -15,6 +17,7 @@ import '../domain/cart_math.dart';
 import '../domain/chain.dart';
 import '../domain/ean.dart';
 import '../domain/price_quote.dart';
+import '../domain/price_store.dart';
 import '../domain/store.dart';
 
 // ---- infrastruttura ---------------------------------------------------------
@@ -25,7 +28,9 @@ final dbProvider = Provider<AppDatabase>((ref) {
   return db;
 });
 
-final sessionStorageProvider = Provider<SessionStorage>((_) => SessionStorage());
+final sessionStorageProvider = Provider<SessionStorage>(
+  (_) => SessionStorage(),
+);
 
 /// Un client per catena (ognuno con il suo rate limit).
 final apiProvider = Provider.family<EbsnApi, Chain>((ref, chain) {
@@ -33,13 +38,38 @@ final apiProvider = Provider.family<EbsnApi, Chain>((ref, chain) {
   return EbsnApi(
     EbsnConfig.poli,
     onSessionChanged: (s) => ref.read(sessionStorageProvider).save(s),
-    onSessionExpired: () =>
-        Future.microtask(() => ref.read(sessionProvider.notifier).markExpired()),
+    onSessionExpired: () => Future.microtask(
+      () => ref.read(sessionProvider.notifier).markExpired(),
+    ),
   );
 });
 
-final productRepoProvider =
-    Provider.family<ProductRepository, Chain>((ref, chain) {
+/// DupliClick senza sessione: listino online, anche quando si è collegati.
+final poliOnlineApiProvider = Provider<EbsnApi>(
+  (ref) => EbsnApi(EbsnConfig.poli),
+);
+
+final poliOnlineRepoProvider = Provider<ProductRepository>((ref) {
+  return ProductRepository(
+    api: ref.watch(poliOnlineApiProvider),
+    db: ref.watch(dbProvider),
+    currentStoreId: () => null,
+  );
+});
+
+final priceServiceProvider = Provider<PriceService>((ref) {
+  return PriceService(
+    poliOnline: ref.watch(poliOnlineRepoProvider),
+    poliSession: ref.watch(productRepoProvider(Chain.poli)),
+    coop: ref.watch(productRepoProvider(Chain.coop)),
+    cartStoreId: () => ref.read(sessionProvider).storeId,
+  );
+});
+
+final productRepoProvider = Provider.family<ProductRepository, Chain>((
+  ref,
+  chain,
+) {
   return ProductRepository(
     api: ref.watch(apiProvider(chain)),
     db: ref.watch(dbProvider),
@@ -57,28 +87,94 @@ final storeRepoProvider = Provider<StoreRepository>((ref) {
   );
 });
 
-/// Catena in cui si sta facendo la spesa (scanner e catalogo).
-class ActiveChainNotifier extends Notifier<Chain> {
-  static const _key = 'active_chain';
+/// Negozi da cui leggere e confrontare i prezzi, in ordine di preferenza.
+/// Il primo è quello proposto per primo quando un prodotto è in più negozi.
+class SelectedStoresNotifier extends Notifier<List<PriceStore>> {
+  static const _key = 'selected_stores';
 
   @override
-  Chain build() {
-    Future.microtask(() async {
-      final v = await ref.read(dbProvider).getValue(_key);
-      final c = Chain.values.where((c) => c.name == v).firstOrNull;
-      if (c != null) state = c;
-    });
-    return Chain.poli;
+  List<PriceStore> build() {
+    Future.microtask(_load);
+    return const [PriceStore.poliOnline, PriceStore.coopOnline];
   }
 
-  void set(Chain c) {
-    state = c;
-    ref.read(dbProvider).setValue(_key, c.name);
+  Future<void> _load() async {
+    final raw = await ref.read(dbProvider).getValue(_key);
+    if (raw == null) return;
+    try {
+      state = (jsonDecode(raw) as List)
+          .map((e) => PriceStore.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {}
+  }
+
+  void _set(List<PriceStore> v) {
+    state = v;
+    ref
+        .read(dbProvider)
+        .setValue(_key, jsonEncode(v.map((s) => s.toJson()).toList()));
+  }
+
+  bool contains(PriceStore s) => state.any((e) => e.id == s.id);
+
+  void toggle(PriceStore s) => contains(s)
+      ? _set(state.where((e) => e.id != s.id).toList())
+      : _set([...state, s]);
+
+  void reorder(int from, int to) {
+    final l = [...state];
+    // `to` è già corretto per l'elemento tolto (onReorderItem).
+    l.insert(to, l.removeAt(from));
+    _set(l);
   }
 }
 
-final activeChainProvider =
-    NotifierProvider<ActiveChainNotifier, Chain>(ActiveChainNotifier.new);
+final selectedStoresProvider =
+    NotifierProvider<SelectedStoresNotifier, List<PriceStore>>(
+      SelectedStoresNotifier.new,
+    );
+
+/// Tutti i negozi che si possono aggiungere al confronto.
+final availableStoresProvider = FutureProvider<List<PriceStore>>((ref) async {
+  final poli = await ref.watch(storesProvider.future);
+  return [
+    PriceStore.poliOnline,
+    for (final s in poli)
+      PriceStore(
+        chain: Chain.poli,
+        storeId: s.addressId,
+        name: 'Poli · ${s.name}',
+        address: [
+          s.address,
+          s.city,
+        ].whereType<String>().where((e) => e.isNotEmpty).join(', '),
+      ),
+    PriceStore.coopOnline,
+  ];
+});
+
+/// Chiedere quale prezzo usare quando il prodotto è in più negozi.
+class AskStoreChoiceNotifier extends Notifier<bool> {
+  static const _key = 'ask_store_choice';
+
+  @override
+  bool build() {
+    Future.microtask(() async {
+      final v = await ref.read(dbProvider).getValue(_key);
+      if (v != null) state = v == 'true';
+    });
+    return true;
+  }
+
+  void set(bool v) {
+    state = v;
+    ref.read(dbProvider).setValue(_key, '$v');
+  }
+}
+
+final askStoreChoiceProvider = NotifierProvider<AskStoreChoiceNotifier, bool>(
+  AskStoreChoiceNotifier.new,
+);
 
 // ---- sessione DupliClick ----------------------------------------------------
 
@@ -96,14 +192,14 @@ class SessionState {
       status == SessionStatus.connected ? address?.addressId : null;
 
   String get label => switch (status) {
-        SessionStatus.none => 'Non collegato',
-        SessionStatus.checking => 'Verifica sessione…',
-        SessionStatus.connected =>
-          'Collegato a ${address?.addressName ?? 'DupliClick'}',
-        SessionStatus.expired => 'Sessione scaduta',
-        SessionStatus.offline => 'Offline (sessione salvata)',
-        SessionStatus.error => 'Errore: ${message ?? ''}',
-      };
+    SessionStatus.none => 'Non collegato',
+    SessionStatus.checking => 'Verifica sessione…',
+    SessionStatus.connected =>
+      'Collegato a ${address?.addressName ?? 'DupliClick'}',
+    SessionStatus.expired => 'Sessione scaduta',
+    SessionStatus.offline => 'Offline (sessione salvata)',
+    SessionStatus.error => 'Errore: ${message ?? ''}',
+  };
 }
 
 class SessionNotifier extends Notifier<SessionState> {
@@ -128,9 +224,11 @@ class SessionNotifier extends Notifier<SessionState> {
 
   /// Sessione appena letta dalla WebView di login.
   Future<void> connect(EbsnSession s) async {
-    debugPrint('Sessione DupliClick: JSESSIONID=${s.jsessionId != null}, '
-        'X-Ebsn-Session=${s.ebsnSession != null}, '
-        'X-Ebsn-Account=${s.ebsnAccount != null}');
+    debugPrint(
+      'Sessione DupliClick: JSESSIONID=${s.jsessionId != null}, '
+      'X-Ebsn-Session=${s.ebsnSession != null}, '
+      'X-Ebsn-Account=${s.ebsnAccount != null}',
+    );
     await _storage.save(s);
     await _api.setSession(s);
     await verify();
@@ -170,17 +268,13 @@ class SessionNotifier extends Notifier<SessionState> {
   }
 }
 
-final sessionProvider =
-    NotifierProvider<SessionNotifier, SessionState>(SessionNotifier.new);
+final sessionProvider = NotifierProvider<SessionNotifier, SessionState>(
+  SessionNotifier.new,
+);
 
 final storesProvider = FutureProvider<List<Store>>(
-    (ref) => ref.watch(storeRepoProvider).trentoStores());
-
-/// Negozio con cui confrontare il carrello: l'altro dei due di Trento.
-final compareStoreProvider = Provider<Store>((ref) {
-  final cur = ref.watch(sessionProvider).storeId;
-  return cur == kIperPoliTrentoId ? kKnownTrentoStores[1] : kKnownTrentoStores[0];
-});
+  (ref) => ref.watch(storeRepoProvider).trentoStores(),
+);
 
 // ---- carrello ---------------------------------------------------------------
 
@@ -210,7 +304,7 @@ class CartNotifier extends Notifier<List<CartItem>> {
   /// Aggiunge un prodotto trovato; se già presente incrementa la quantità.
   /// Restituisce la riga aggiornata.
   CartItem add(LookupResult r, {ScaleLabel? label}) {
-    final id = label?.raw ?? '${r.product.chain.name}:${r.product.barcode}';
+    final id = label?.raw ?? r.product.barcode;
     final idx = state.indexWhere((i) => i.id == id);
     if (idx >= 0) {
       final updated = state[idx].copyWith(quantity: state[idx].quantity + 1);
@@ -261,12 +355,16 @@ class CartNotifier extends Notifier<List<CartItem>> {
 
   /// Un tocco sullo stesso bollino lo toglie, sull'altro lo sostituisce.
   void toggleSticker(String id, int pct) => _update(
-      id,
-      (i) => i.copyWith(
-          discountPercent: i.discountPercent == pct ? 0 : pct));
+    id,
+    (i) => i.copyWith(discountPercent: i.discountPercent == pct ? 0 : pct),
+  );
 
-  void setWeight(String id,
-      {double? weightKg, double? labelTotal, double? pricePerKg}) {
+  void setWeight(
+    String id, {
+    double? weightKg,
+    double? labelTotal,
+    double? pricePerKg,
+  }) {
     _update(
       id,
       (i) => i.copyWith(
@@ -274,8 +372,8 @@ class CartNotifier extends Notifier<List<CartItem>> {
         labelTotal: labelTotal,
         pricePerKgOverride:
             (pricePerKg != null && pricePerKg != i.quote.pricePerKg)
-                ? pricePerKg
-                : null,
+            ? pricePerKg
+            : null,
       ),
     );
   }
@@ -289,41 +387,47 @@ class CartNotifier extends Notifier<List<CartItem>> {
   }
 }
 
-final cartProvider =
-    NotifierProvider<CartNotifier, List<CartItem>>(CartNotifier.new);
+final cartProvider = NotifierProvider<CartNotifier, List<CartItem>>(
+  CartNotifier.new,
+);
 
-final cartTotalsProvider =
-    Provider<CartTotals>((ref) => cartTotals(ref.watch(cartProvider)));
+final cartTotalsProvider = Provider<CartTotals>(
+  (ref) => cartTotals(ref.watch(cartProvider)),
+);
 
-/// Prezzi in cache dell'altro negozio Poli per gli articoli Poli nel carrello.
-final otherQuotesProvider =
-    FutureProvider<Map<String, PriceQuote>>((ref) async {
-  final items = ref.watch(cartProvider);
-  final other = ref.watch(compareStoreProvider);
-  return ref.read(storeRepoProvider).cachedQuotes(
-      other.addressId,
-      items
-          .where((i) => i.product.chain == Chain.poli)
-          .map((i) => i.product.barcode));
-});
+/// Prezzi delle righe del carrello in tutti i negozi selezionati, con chiave
+/// `storeQuoteKey(negozio, riga)`. Le letture partono una alla volta per
+/// client; i prezzi Poli dei negozi non attivi arrivano solo dalla cache.
+String storeQuoteKey(String storeId, String itemId) => '$storeId|$itemId';
 
-/// Prezzi dell'altra catena (Coop per le righe Poli e viceversa), per
-/// `CartItem.id`. Un valore null significa "non a listino". Le richieste
-/// partono una alla volta, con cache di 6 ore.
-class CrossChainNotifier extends Notifier<Map<String, PriceQuote?>> {
-  final _failed = <String>{};
+class StoreQuotesNotifier extends Notifier<Map<String, StoreQuote>> {
   bool _running = false;
 
   @override
-  Map<String, PriceQuote?> build() {
+  Map<String, StoreQuote> build() {
     ref.listen(cartProvider, (_, _) => _fill());
+    ref.listen(selectedStoresProvider, (_, _) => _fill());
+    ref.listen(sessionProvider, (a, b) {
+      if (a?.storeId != b.storeId) refresh();
+    });
     Future.microtask(_fill);
     return const {};
   }
 
-  /// Riprova anche le righe andate in errore.
+  /// Prezzi già letti durante una scansione.
+  void prefill(String itemId, Map<String, StoreQuote> byStore) {
+    state = {
+      ...state,
+      for (final e in byStore.entries) storeQuoteKey(e.key, itemId): e.value,
+    };
+  }
+
+  /// Rilegge le righe senza prezzo (errori, negozi non disponibili).
   void refresh() {
-    _failed.clear();
+    state = {
+      for (final e in state.entries)
+        if (e.value is QuoteFound || e.value is QuoteNotFound) e.key: e.value,
+    };
     _fill();
   }
 
@@ -332,23 +436,25 @@ class CrossChainNotifier extends Notifier<Map<String, PriceQuote?>> {
     _running = true;
     try {
       while (true) {
-        final todo = ref
-            .read(cartProvider)
-            .where((i) =>
-                i.product.productId > 0 &&
-                !state.containsKey(i.id) &&
-                !_failed.contains(i.id))
-            .firstOrNull;
-        if (todo == null) break;
-        final other = todo.product.chain.other;
-        try {
-          final r =
-              await ref.read(productRepoProvider(other)).lookup(todo.product.barcode);
-          state = {...state, todo.id: r?.quote};
-        } on ApiException catch (e) {
-          debugPrint('Prezzo ${other.serviceName} per ${todo.product.barcode}: $e');
-          _failed.add(todo.id);
+        final stores = ref.read(selectedStoresProvider);
+        (PriceStore, CartItem)? todo;
+        for (final item in ref.read(cartProvider)) {
+          if (item.product.productId <= 0) continue;
+          for (final s in stores) {
+            if (s.id == PriceStore.idOfQuote(item.quote)) continue;
+            if (!state.containsKey(storeQuoteKey(s.id, item.id))) {
+              todo = (s, item);
+              break;
+            }
+          }
+          if (todo != null) break;
         }
+        if (todo == null) break;
+        final (store, item) = todo;
+        final q = await ref
+            .read(priceServiceProvider)
+            .quote(store, item.product.barcode);
+        state = {...state, storeQuoteKey(store.id, item.id): q};
       }
     } finally {
       _running = false;
@@ -356,9 +462,59 @@ class CrossChainNotifier extends Notifier<Map<String, PriceQuote?>> {
   }
 }
 
-final crossChainProvider =
-    NotifierProvider<CrossChainNotifier, Map<String, PriceQuote?>>(
-        CrossChainNotifier.new);
+final storeQuotesProvider =
+    NotifierProvider<StoreQuotesNotifier, Map<String, StoreQuote>>(
+      StoreQuotesNotifier.new,
+    );
+
+/// Prezzo di una riga in un negozio: quello della riga stessa se viene da lì.
+PriceQuote? quoteIn(
+  PriceStore s,
+  CartItem item,
+  Map<String, StoreQuote> quotes,
+) {
+  if (s.id == PriceStore.idOfQuote(item.quote)) return item.quote;
+  final q = quotes[storeQuoteKey(s.id, item.id)];
+  return q is QuoteFound ? q.result.quote : null;
+}
+
+class StoreTotal {
+  const StoreTotal(this.store, this.total, this.missing, this.unavailable);
+  final PriceStore store;
+  final double total;
+
+  /// Righe senza prezzo in questo negozio (conteggiate al prezzo della riga).
+  final int missing;
+
+  /// Il negozio non si può leggere adesso.
+  final String? unavailable;
+}
+
+/// Totale del carrello in ogni negozio selezionato.
+final storeTotalsProvider = Provider<List<StoreTotal>>((ref) {
+  final items = ref
+      .watch(cartProvider)
+      .where((i) => i.product.productId > 0)
+      .toList();
+  final quotes = ref.watch(storeQuotesProvider);
+  final svc = ref.watch(priceServiceProvider);
+  ref.watch(sessionProvider);
+  return [
+    for (final s in ref.watch(selectedStoresProvider))
+      () {
+        final map = <String, PriceQuote>{
+          for (final i in items) i.id: ?quoteIn(s, i, quotes),
+        };
+        final o = otherStoreTotal(items, map, keyOf: (i) => i.id);
+        return StoreTotal(
+          s,
+          o.total,
+          o.missing,
+          map.isEmpty ? svc.unavailableReason(s) : null,
+        );
+      }(),
+  ];
+});
 
 // ---- listino offline -------------------------------------------------------
 
@@ -369,15 +525,17 @@ class OfflineInfo {
   final DateTime? downloadedAt;
 }
 
-final offlineInfoProvider =
-    FutureProvider.family<OfflineInfo, Chain>((ref, chain) async {
+final offlineInfoProvider = FutureProvider.family<OfflineInfo, Chain>((
+  ref,
+  chain,
+) async {
   final db = ref.watch(dbProvider);
   final repo = ref.watch(productRepoProvider(chain));
   final at = await db.getValue(repo.downloadedAtKey);
-  return OfflineInfo(
-      await db.catalogCount(chain), DateTime.tryParse(at ?? ''));
+  return OfflineInfo(await db.catalogCount(chain), DateTime.tryParse(at ?? ''));
 });
 
 /// Punti di ritiro Click&Coop (i prezzi non dipendono dal punto scelto).
 final coopPickupProvider = FutureProvider<List<Store>>(
-    (ref) => ref.watch(apiProvider(Chain.coop)).deliveryServiceList());
+  (ref) => ref.watch(apiProvider(Chain.coop)).deliveryServiceList(),
+);

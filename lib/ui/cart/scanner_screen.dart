@@ -57,14 +57,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     _lastAt = now;
     _busy = true;
     _feedback.ok();
-    final outcome = await handleScannedCode(ref, code);
-    if (outcome is! ScanAdded) _feedback.error();
-    if (mounted && (outcome is ScanNeedsWeight ||
-        (outcome is ScanAdded && outcome.needsWeight))) {
-      await _controller.stop();
-      if (mounted) await completeWeight(context, ref, outcome);
-      if (mounted) await _controller.start();
-    }
+    final outcome = await processScan(context, ref, code);
+    if (outcome is ScanNotFound || outcome is ScanError) _feedback.error();
     _lastAt = DateTime.now();
     if (mounted) setState(() => _outcome = outcome);
     _busy = false;
@@ -73,7 +67,6 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   @override
   Widget build(BuildContext context) {
     final totals = ref.watch(cartTotalsProvider);
-    final chain = ref.watch(activeChainProvider);
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -107,11 +100,12 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                     ),
                     const Spacer(),
                     Text(
-                      '${chain.label} · ${totals.pieces} pz · ${eur(totals.total)}',
+                      '${totals.pieces} pz · ${eur(totals.total)}',
                       style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold),
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const Spacer(),
                     IconButton(
@@ -159,33 +153,47 @@ class _OutcomeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final child = switch (outcome) {
-      ScanAdded(:final item, :final isLabel) => ListTile(
-          leading: ProductImage(item.product.thumbUrl, size: 48),
-          title: Text(item.product.name,
-              maxLines: 2, overflow: TextOverflow.ellipsis),
-          subtitle: Row(children: [
+      ScanCancelled() => const ListTile(title: Text('Annullato')),
+      ScanAdded(:final item, :final isLabel, :final store) => ListTile(
+        leading: ProductImage(item.product.thumbUrl, size: 48),
+        title: Text(
+          item.product.name,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Row(
+          children: [
             SourceBadge(item.quote),
             const SizedBox(width: 8),
-            Text(isLabel ? 'etichetta' : 'quantità ${item.quantity}'),
-          ]),
-          trailing: Text(eur(lineTotals(item).net),
-              style: Theme.of(context).textTheme.titleMedium),
+            Flexible(
+              child: Text(
+                '${store?.shortLabel ?? ''} · '
+                '${isLabel ? 'etichetta' : 'quantità ${item.quantity}'}',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
+        trailing: Text(
+          eur(lineTotals(item).net),
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+      ),
       ScanNeedsWeight(:final code) => ListTile(
-          leading: const Icon(Icons.scale_outlined),
-          title: const Text('Codice bilancia'),
-          subtitle: Text(code),
-        ),
-      ScanNotFound(:final code) => ListTile(
-          leading: const Icon(Icons.search_off, color: Colors.red),
-          title: const Text('Prodotto non trovato'),
-          subtitle: Text(code),
-        ),
+        leading: const Icon(Icons.scale_outlined),
+        title: const Text('Articolo a peso aggiunto'),
+        subtitle: Text(code),
+      ),
+      ScanNotFound(:final code, :final detail) => ListTile(
+        leading: const Icon(Icons.search_off, color: Colors.red),
+        title: const Text('Prodotto non trovato nei negozi selezionati'),
+        subtitle: Text(detail == null ? code : '$code\n$detail'),
+      ),
       ScanError(:final message) => ListTile(
-          leading: const Icon(Icons.error_outline, color: Colors.red),
-          title: const Text('Errore'),
-          subtitle: Text(message),
-        ),
+        leading: const Icon(Icons.error_outline, color: Colors.red),
+        title: const Text('Errore'),
+        subtitle: Text(message),
+      ),
     };
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16),

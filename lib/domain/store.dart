@@ -28,7 +28,8 @@ abstract class Store with _$Store {
     final m = asMap(raw);
     if (m == null) return null;
     final id = asInt(m['addressId']) ?? asInt(m['id']);
-    final name = asString(m['addressName']) ??
+    final name =
+        asString(m['addressName']) ??
         asString(m['name']) ??
         asString(m['warehouseName']);
     if (id == null || name == null) return null;
@@ -86,7 +87,8 @@ abstract class CartAddress with _$CartAddress {
       addressId: id,
       addressName: asString(m['addressName']) ?? asString(m['name']),
       addressType: asString(m['addressType']),
-      deliveryServiceId: asInt(m['deliveryServiceId']) ??
+      deliveryServiceId:
+          asInt(m['deliveryServiceId']) ??
           asInt(asMap(m['deliveryService'])?['deliveryServiceId']),
     );
   }

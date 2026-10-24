@@ -8,8 +8,11 @@ class ProductImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fallback = Icon(Icons.shopping_basket_outlined,
-        size: size * 0.5, color: Theme.of(context).colorScheme.outline);
+    final fallback = Icon(
+      Icons.shopping_basket_outlined,
+      size: size * 0.5,
+      color: Theme.of(context).colorScheme.outline,
+    );
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: Container(

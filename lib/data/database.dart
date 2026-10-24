@@ -63,23 +63,23 @@ class CachedPrice {
 @DriftDatabase(tables: [PriceCache, Catalog, CartLines, KeyValues])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
-      : super(executor ?? driftDatabase(name: 'spesa_trento'));
+    : super(executor ?? driftDatabase(name: 'spesa_trento'));
 
   @override
   int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onUpgrade: (m, from, to) async {
-          if (from < 2) {
-            // Cache e listino offline: si possono riscaricare.
-            await m.deleteTable('price_cache');
-            await m.deleteTable('catalog');
-            await m.createTable(priceCache);
-            await m.createTable(catalog);
-          }
-        },
-      );
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        // Cache e listino offline: si possono riscaricare.
+        await m.deleteTable('price_cache');
+        await m.deleteTable('catalog');
+        await m.createTable(priceCache);
+        await m.createTable(catalog);
+      }
+    },
+  );
 
   Product _decode(String json) =>
       Product.fromJson(jsonDecode(json) as Map<String, dynamic>);
@@ -87,60 +87,77 @@ class AppDatabase extends _$AppDatabase {
   // ---- cache prezzi ------------------------------------------------------
 
   Future<CachedPrice?> cachedPrice(
-      Chain chain, String storeKey, String barcode) async {
-    final row = await (select(priceCache)
-          ..where((t) =>
-              t.chain.equals(chain.name) &
-              t.storeKey.equals(storeKey) &
-              t.barcode.equals(barcode)))
-        .getSingleOrNull();
+    Chain chain,
+    String storeKey,
+    String barcode,
+  ) async {
+    final row =
+        await (select(priceCache)..where(
+              (t) =>
+                  t.chain.equals(chain.name) &
+                  t.storeKey.equals(storeKey) &
+                  t.barcode.equals(barcode),
+            ))
+            .getSingleOrNull();
     if (row == null) return null;
     return CachedPrice(_decode(row.productJson), row.readAt);
   }
 
   Future<void> putPrice(String storeKey, Product p, DateTime readAt) =>
-      into(priceCache).insertOnConflictUpdate(PriceCacheCompanion.insert(
-        chain: p.chain.name,
-        storeKey: storeKey,
-        barcode: p.barcode,
-        productJson: jsonEncode(p.toJson()),
-        readAt: readAt,
-      ));
+      into(priceCache).insertOnConflictUpdate(
+        PriceCacheCompanion.insert(
+          chain: p.chain.name,
+          storeKey: storeKey,
+          barcode: p.barcode,
+          productJson: jsonEncode(p.toJson()),
+          readAt: readAt,
+        ),
+      );
 
   // ---- listino offline ---------------------------------------------------
 
-  Future<void> putCatalog(List<Product> products, DateTime at) =>
-      batch((b) {
-        b.insertAllOnConflictUpdate(
-          catalog,
-          products.map((p) => CatalogCompanion.insert(
-                chain: p.chain.name,
-                productId: p.productId,
-                barcode: p.barcode,
-                name: p.name.toLowerCase(),
-                brand: Value(p.brand?.toLowerCase()),
-                category: Value(p.category),
-                productJson: jsonEncode(p.toJson()),
-                downloadedAt: at,
-              )),
-        );
-      });
+  Future<void> putCatalog(List<Product> products, DateTime at) => batch((b) {
+    b.insertAllOnConflictUpdate(
+      catalog,
+      products.map(
+        (p) => CatalogCompanion.insert(
+          chain: p.chain.name,
+          productId: p.productId,
+          barcode: p.barcode,
+          name: p.name.toLowerCase(),
+          brand: Value(p.brand?.toLowerCase()),
+          category: Value(p.category),
+          productJson: jsonEncode(p.toJson()),
+          downloadedAt: at,
+        ),
+      ),
+    );
+  });
 
   Future<void> clearCatalog(Chain chain) =>
       (delete(catalog)..where((t) => t.chain.equals(chain.name))).go();
 
   Future<({Product product, DateTime downloadedAt})?> catalogProduct(
-      Chain chain, String barcode) async {
-    final row = await (select(catalog)
-          ..where((t) => t.chain.equals(chain.name) & t.barcode.equals(barcode))
-          ..limit(1))
-        .getSingleOrNull();
+    Chain chain,
+    String barcode,
+  ) async {
+    final row =
+        await (select(catalog)
+              ..where(
+                (t) => t.chain.equals(chain.name) & t.barcode.equals(barcode),
+              )
+              ..limit(1))
+            .getSingleOrNull();
     if (row == null) return null;
     return (product: _decode(row.productJson), downloadedAt: row.downloadedAt);
   }
 
-  Future<List<Product>> searchCatalog(Chain chain, String q,
-      {int limit = 24, int offset = 0}) async {
+  Future<List<Product>> searchCatalog(
+    Chain chain,
+    String q, {
+    int limit = 24,
+    int offset = 0,
+  }) async {
     final words = q
         .toLowerCase()
         .split(RegExp(r'\s+'))
@@ -159,7 +176,10 @@ class AppDatabase extends _$AppDatabase {
 
   Future<List<Product>> allCatalog([Chain? chain]) async {
     final q = select(catalog)
-      ..orderBy([(t) => OrderingTerm.asc(t.chain), (t) => OrderingTerm.asc(t.name)]);
+      ..orderBy([
+        (t) => OrderingTerm.asc(t.chain),
+        (t) => OrderingTerm.asc(t.name),
+      ]);
     if (chain != null) q.where((t) => t.chain.equals(chain.name));
     final rows = await q.get();
     return rows.map((r) => _decode(r.productJson)).toList();
@@ -167,24 +187,24 @@ class AppDatabase extends _$AppDatabase {
 
   Future<int> catalogCount(Chain chain) async {
     final c = catalog.productId.count();
-    final row = await (selectOnly(catalog)
-          ..addColumns([c])
-          ..where(catalog.chain.equals(chain.name)))
-        .getSingle();
+    final row =
+        await (selectOnly(catalog)
+              ..addColumns([c])
+              ..where(catalog.chain.equals(chain.name)))
+            .getSingle();
     return row.read(c) ?? 0;
   }
 
   // ---- carrello -----------------------------------------------------------
 
   Future<List<CartItem>> loadCart() async {
-    final rows = await (select(cartLines)
-          ..orderBy([(t) => OrderingTerm.asc(t.position)]))
-        .get();
+    final rows = await (select(
+      cartLines,
+    )..orderBy([(t) => OrderingTerm.asc(t.position)])).get();
     final out = <CartItem>[];
     for (final r in rows) {
       try {
-        out.add(
-            CartItem.fromJson(jsonDecode(r.json) as Map<String, dynamic>));
+        out.add(CartItem.fromJson(jsonDecode(r.json) as Map<String, dynamic>));
       } catch (_) {
         // Riga salvata con un formato vecchio: la ignoriamo.
       }
@@ -193,34 +213,34 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> saveCart(List<CartItem> items) => transaction(() async {
-        await delete(cartLines).go();
-        await batch((b) {
-          for (var i = 0; i < items.length; i++) {
-            b.insert(
-              cartLines,
-              CartLinesCompanion.insert(
-                id: items[i].id,
-                position: i,
-                json: jsonEncode(items[i].toJson()),
-              ),
-            );
-          }
-        });
-      });
+    await delete(cartLines).go();
+    await batch((b) {
+      for (var i = 0; i < items.length; i++) {
+        b.insert(
+          cartLines,
+          CartLinesCompanion.insert(
+            id: items[i].id,
+            position: i,
+            json: jsonEncode(items[i].toJson()),
+          ),
+        );
+      }
+    });
+  });
 
   // ---- impostazioni -------------------------------------------------------
 
-  Future<String?> getValue(String key) async =>
-      (await (select(keyValues)..where((t) => t.key.equals(key)))
-              .getSingleOrNull())
-          ?.value;
+  Future<String?> getValue(String key) async => (await (select(
+    keyValues,
+  )..where((t) => t.key.equals(key))).getSingleOrNull())?.value;
 
   Future<void> setValue(String key, String? value) async {
     if (value == null) {
       await (delete(keyValues)..where((t) => t.key.equals(key))).go();
     } else {
       await into(keyValues).insertOnConflictUpdate(
-          KeyValuesCompanion.insert(key: key, value: value));
+        KeyValuesCompanion.insert(key: key, value: value),
+      );
     }
   }
 }

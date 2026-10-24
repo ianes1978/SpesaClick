@@ -19,14 +19,21 @@ class FakeAdapter implements HttpClientAdapter {
   final requests = <RequestOptions>[];
 
   @override
-  Future<ResponseBody> fetch(RequestOptions options,
-      Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
     requests.add(options);
-    return ResponseBody.fromString(body, status, headers: {
-      // Come il server vero: JSON servito come text/html.
-      Headers.contentTypeHeader: ['text/html;charset=UTF-8'],
-      ...headers,
-    });
+    return ResponseBody.fromString(
+      body,
+      status,
+      headers: {
+        // Come il server vero: JSON servito come text/html.
+        Headers.contentTypeHeader: ['text/html;charset=UTF-8'],
+        ...headers,
+      },
+    );
   }
 
   @override
@@ -34,17 +41,19 @@ class FakeAdapter implements HttpClientAdapter {
 }
 
 EbsnApi apiWith(FakeAdapter a, {void Function()? onExpired}) {
-  final api = EbsnApi(EbsnConfig.poli,
-      minInterval: Duration.zero,
-      sleep: (_) async {},
-      onSessionExpired: onExpired);
+  final api = EbsnApi(
+    EbsnConfig.poli,
+    minInterval: Duration.zero,
+    sleep: (_) async {},
+    onSessionExpired: onExpired,
+  );
   api.dio.httpClientAdapter = a;
   return api;
 }
 
 void main() {
-  final fixture =
-      File('test/fixtures/products_response.json').readAsStringSync();
+  final fixture = File('test/fixtures/products_response.json')
+      .readAsStringSync();
 
   group('Product.fromApi', () {
     test('legge la fixture reale', () {
@@ -114,25 +123,31 @@ void main() {
   });
 
   group('EbsnApi · DupliClick', () {
-    test('cerca per barcode e decodifica JSON servito come text/html',
-        () async {
-      final a = FakeAdapter(fixture,
-          headers: {'X-Ebsn-Session': ['nuova-sessione']});
-      final api = apiWith(a);
-      await api.setSession(const EbsnSession(ebsnSession: 'vecchia'));
-      final p = await api.productByBarcode('8007049920131');
-      expect(p?.name, 'MOUSSE 100% MELA E BANANA');
+    test(
+      'cerca per barcode e decodifica JSON servito come text/html',
+      () async {
+        final a = FakeAdapter(
+          fixture,
+          headers: {
+            'X-Ebsn-Session': ['nuova-sessione'],
+          },
+        );
+        final api = apiWith(a);
+        await api.setSession(const EbsnSession(ebsnSession: 'vecchia'));
+        final p = await api.productByBarcode('8007049920131');
+        expect(p?.name, 'MOUSSE 100% MELA E BANANA');
 
-      final r = a.requests.single;
-      expect(r.path, '/products');
-      expect(r.queryParameters['barcode'], '8007049920131');
-      expect(r.queryParameters['page_size'], 1);
-      expect(r.headers['X-Ebsn-Client'], 'production');
-      expect(r.headers['X-Ebsn-Client-Redirect'], 'production');
-      expect(r.headers['X-Ebsn-Session'], 'vecchia');
-      // Il nuovo valore restituito dal server viene adottato.
-      expect(api.session.ebsnSession, 'nuova-sessione');
-    });
+        final r = a.requests.single;
+        expect(r.path, '/products');
+        expect(r.queryParameters['barcode'], '8007049920131');
+        expect(r.queryParameters['page_size'], 1);
+        expect(r.headers['X-Ebsn-Client'], 'production');
+        expect(r.headers['X-Ebsn-Client-Redirect'], 'production');
+        expect(r.headers['X-Ebsn-Session'], 'vecchia');
+        // Il nuovo valore restituito dal server viene adottato.
+        expect(api.session.ebsnSession, 'nuova-sessione');
+      },
+    );
 
     test('pagina di ricerca', () async {
       final api = apiWith(FakeAdapter(fixture));
@@ -144,46 +159,66 @@ void main() {
 
     test('419 → SessionExpiredException', () async {
       var expired = false;
-      final api = apiWith(FakeAdapter('', status: 419),
-          onExpired: () => expired = true);
+      final api = apiWith(
+        FakeAdapter('', status: 419),
+        onExpired: () => expired = true,
+      );
       await expectLater(
-          api.cartAddress(), throwsA(isA<SessionExpiredException>()));
+        api.cartAddress(),
+        throwsA(isA<SessionExpiredException>()),
+      );
       expect(expired, isTrue);
     });
 
     test('struttura cambiata → ApiFormatException', () async {
       final api = apiWith(FakeAdapter('{"response":{"status":0},"data":{}}'));
       await expectLater(
-          api.productByBarcode('1'), throwsA(isA<ApiFormatException>()));
+        api.productByBarcode('1'),
+        throwsA(isA<ApiFormatException>()),
+      );
       final api2 = apiWith(FakeAdapter('<html>manutenzione</html>'));
       await expectLater(
-          api2.productByBarcode('1'), throwsA(isA<ApiFormatException>()));
+        api2.productByBarcode('1'),
+        throwsA(isA<ApiFormatException>()),
+      );
     });
 
     test('status != 0 → ApiServerException con il messaggio', () async {
-      final api = apiWith(FakeAdapter(
-          '{"response":{"status":-1,"errors":[{"error":"Indirizzo non valido"}]}}'));
+      final api = apiWith(
+        FakeAdapter(
+          '{"response":{"status":-1,"errors":[{"error":"Indirizzo non valido"}]}}',
+        ),
+      );
       await expectLater(
         api.selectAddress(1103),
-        throwsA(isA<ApiServerException>().having(
-            (e) => e.message, 'message', contains('Indirizzo non valido'))),
+        throwsA(
+          isA<ApiServerException>().having(
+            (e) => e.message,
+            'message',
+            contains('Indirizzo non valido'),
+          ),
+        ),
       );
     });
 
     test('cart/view legge shippingAddress anche dentro data.cart', () async {
-      final api = apiWith(FakeAdapter(jsonEncode({
-        'response': {'status': 0},
-        'data': {
-          'cart': {
-            'shippingAddress': {
-              'addressId': 1412,
-              'addressName': 'IperPoli Trento',
-              'addressType': 'work',
-              'deliveryServiceId': '1',
-            }
-          }
-        }
-      })));
+      final api = apiWith(
+        FakeAdapter(
+          jsonEncode({
+            'response': {'status': 0},
+            'data': {
+              'cart': {
+                'shippingAddress': {
+                  'addressId': 1412,
+                  'addressName': 'IperPoli Trento',
+                  'addressType': 'work',
+                  'deliveryServiceId': '1',
+                },
+              },
+            },
+          }),
+        ),
+      );
       final a = await api.cartAddress();
       expect(a?.addressId, 1412);
       expect(a?.addressName, 'IperPoli Trento');

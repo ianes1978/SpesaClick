@@ -5,10 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../data/api_exceptions.dart';
 import '../../domain/cart_math.dart';
 import '../../domain/chain.dart';
-import '../../domain/store.dart';
 import '../feedback.dart';
 import '../providers.dart';
-import '../widgets/chain_switcher.dart';
 import '../widgets/format.dart';
 import '../widgets/store_selector.dart';
 import 'cart_tile.dart';
@@ -32,25 +30,37 @@ class _CartScreenState extends ConsumerState<CartScreen> {
 
   Future<void> _submitCode(String code) async {
     final messenger = ScaffoldMessenger.of(context);
-    final outcome = await handleScannedCode(ref, code);
+    final outcome = await processScan(context, ref, code);
     if (!mounted) return;
     switch (outcome) {
-      case ScanAdded(:final item):
+      case ScanAdded(:final item, :final store):
         _feedback.ok();
-        messenger.showSnackBar(SnackBar(
+        messenger.showSnackBar(
+          SnackBar(
             duration: const Duration(seconds: 2),
-            content: Text('Aggiunto: ${item.product.name}')));
-        if (outcome.needsWeight) await completeWeight(context, ref, outcome);
+            content: Text(
+              'Aggiunto: ${item.product.name}'
+              '${store != null ? ' (${store.shortLabel})' : ''}',
+            ),
+          ),
+        );
       case ScanNeedsWeight():
-        _feedback.error();
-        await completeWeight(context, ref, outcome);
-      case ScanNotFound(:final code):
+        _feedback.ok();
+      case ScanNotFound(:final code, :final detail):
         _feedback.error();
         messenger.showSnackBar(
-            SnackBar(content: Text('Prodotto non trovato: $code')));
+          SnackBar(
+            content: Text(
+              'Prodotto non trovato: $code'
+              '${detail != null ? '\n$detail' : ''}',
+            ),
+          ),
+        );
       case ScanError(:final message):
         _feedback.error();
         messenger.showSnackBar(SnackBar(content: Text(message)));
+      case ScanCancelled():
+        break;
     }
   }
 
@@ -69,11 +79,13 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Annulla')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annulla'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, ctrl.text),
-              child: const Text('Cerca')),
+            onPressed: () => Navigator.pop(ctx, ctrl.text),
+            child: const Text('Cerca'),
+          ),
         ],
       ),
     );
@@ -81,16 +93,15 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   }
 
   Future<void> _simulate() async {
-    final chain = ref.read(activeChainProvider);
     final code = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
       builder: (ctx) => ListView(
         shrinkWrap: true,
         children: [
-          ListTile(title: Text('Simula scansione · ${chain.label}')),
-          for (final (c, code, label) in kSampleCodes)
-            if (c == chain || code.startsWith('000')) ListTile(
+          const ListTile(title: Text('Simula scansione')),
+          for (final (code, label) in kSampleCodes)
+            ListTile(
               title: Text(label),
               subtitle: Text(code),
               onTap: () => Navigator.pop(ctx, code),
@@ -109,11 +120,13 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         content: const Text('Tutte le righe verranno eliminate.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Annulla')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annulla'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Svuota')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Svuota'),
+          ),
         ],
       ),
     );
@@ -123,13 +136,20 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   @override
   Widget build(BuildContext context) {
     final items = ref.watch(cartProvider);
-    final chain = ref.watch(activeChainProvider);
+    final stores = ref.watch(selectedStoresProvider);
+    final onPrimary = Theme.of(context).colorScheme.onPrimary;
     return Scaffold(
       appBar: AppBar(
-        title: const ChainSwitcher(),
-        titleSpacing: 8,
+        title: const Text('Spesa Trento'),
         actions: [
-          if (chain == Chain.poli) const Flexible(child: StoreSelector()),
+          TextButton.icon(
+            onPressed: () => context.push('/stores'),
+            icon: Icon(Icons.storefront, color: onPrimary, size: 18),
+            label: Text(
+              'Negozi (${stores.length})',
+              style: TextStyle(color: onPrimary),
+            ),
+          ),
           PopupMenuButton<String>(
             onSelected: (v) => switch (v) {
               'manual' => _manualEntry(),
@@ -145,21 +165,14 @@ class _CartScreenState extends ConsumerState<CartScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          if (chain == Chain.coop) const CoopPriceNotice(),
-          Expanded(
-            child: items.isEmpty
-                ? _Empty(onManual: _manualEntry, onSimulate: _simulate)
-                : ListView.separated(
-                    padding: const EdgeInsets.only(bottom: 96),
-                    itemCount: items.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1),
-                    itemBuilder: (_, i) => CartTile(items[i]),
-                  ),
-          ),
-        ],
-      ),
+      body: items.isEmpty
+          ? _Empty(onManual: _manualEntry, onSimulate: _simulate)
+          : ListView.separated(
+              padding: const EdgeInsets.only(bottom: 96),
+              itemCount: items.length,
+              separatorBuilder: (_, _) => const Divider(height: 1),
+              itemBuilder: (_, i) => CartTile(items[i]),
+            ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/scanner'),
         icon: const Icon(Icons.qr_code_scanner),
@@ -183,22 +196,32 @@ class _Empty extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.shopping_cart_outlined,
-                size: 72, color: Theme.of(context).colorScheme.outline),
+            Icon(
+              Icons.shopping_cart_outlined,
+              size: 72,
+              color: Theme.of(context).colorScheme.outline,
+            ),
             const SizedBox(height: 16),
-            const Text('Il carrello è vuoto.\nScansiona il primo prodotto!',
-                textAlign: TextAlign.center),
+            const Text(
+              'Il carrello è vuoto.\nScansiona il primo prodotto!',
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 16),
-            Wrap(spacing: 8, children: [
-              OutlinedButton.icon(
+            Wrap(
+              spacing: 8,
+              children: [
+                OutlinedButton.icon(
                   onPressed: onManual,
                   icon: const Icon(Icons.keyboard),
-                  label: const Text('Inserisci EAN')),
-              OutlinedButton.icon(
+                  label: const Text('Inserisci EAN'),
+                ),
+                OutlinedButton.icon(
                   onPressed: onSimulate,
                   icon: const Icon(Icons.science_outlined),
-                  label: const Text('Simula scansione')),
-            ]),
+                  label: const Text('Simula scansione'),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -206,7 +229,8 @@ class _Empty extends StatelessWidget {
   }
 }
 
-/// Riepilogo fisso: totale, pezzi, risparmio, confronto con l'altro negozio.
+/// Riepilogo fisso: totale, pezzi, risparmio e totale in ogni negozio
+/// selezionato.
 class _SummaryBar extends ConsumerStatefulWidget {
   const _SummaryBar();
 
@@ -216,32 +240,50 @@ class _SummaryBar extends ConsumerStatefulWidget {
 
 class _SummaryBarState extends ConsumerState<_SummaryBar> {
   String? _progress;
+  bool _expanded = false;
 
-  Future<void> _compare() async {
+  /// Legge i prezzi dei negozi Poli selezionati spostando il carrello
+  /// DupliClick reale e ripristinandolo alla fine.
+  Future<void> _refreshPoli() async {
     final session = ref.read(sessionProvider);
     final messenger = ScaffoldMessenger.of(context);
     if (session.storeId == null) {
-      messenger.showSnackBar(const SnackBar(
-          content: Text('Collega DupliClick per confrontare i negozi.')));
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Collega DupliClick per i prezzi dei negozi Poli.'),
+        ),
+      );
       return;
     }
+    final ids = ref
+        .read(selectedStoresProvider)
+        .where((s) => s.chain == Chain.poli && !s.isOnline)
+        .map((s) => s.storeId!)
+        .toList();
+    if (!ids.contains(session.storeId)) ids.insert(0, session.storeId!);
     if (!await confirmStoreSwitch(context, restore: true)) return;
-    final other = ref.read(compareStoreProvider);
     final items = ref.read(cartProvider);
     try {
-      await ref.read(storeRepoProvider).compare(
-        items.map((i) => i.product.barcode),
-        [session.storeId!, other.addressId],
-        onProgress: (m) => mounted ? setState(() => _progress = m) : null,
-      );
+      await ref
+          .read(storeRepoProvider)
+          .compare(
+            items.map((i) => i.product.barcode),
+            ids,
+            onProgress: (m) => mounted ? setState(() => _progress = m) : null,
+          );
       messenger.showSnackBar(
-          const SnackBar(content: Text('Confronto aggiornato.')));
+        const SnackBar(content: Text('Prezzi Poli aggiornati.')),
+      );
     } on ApiException catch (e) {
-      messenger.showSnackBar(SnackBar(
-          duration: const Duration(seconds: 8), content: Text(e.message)));
+      messenger.showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 8),
+          content: Text(e.message),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _progress = null);
-      ref.invalidate(otherQuotesProvider);
+      ref.read(storeQuotesProvider.notifier).refresh();
       ref.read(sessionProvider.notifier).verify();
     }
   }
@@ -249,48 +291,68 @@ class _SummaryBarState extends ConsumerState<_SummaryBar> {
   @override
   Widget build(BuildContext context) {
     final totals = ref.watch(cartTotalsProvider);
-    final items = ref.watch(cartProvider);
-    final poliItems =
-        items.where((i) => i.product.chain == Chain.poli).toList();
-    final other = ref.watch(compareStoreProvider);
-    final quotes = ref.watch(otherQuotesProvider).value ?? const {};
+    final storeTotals = ref.watch(storeTotalsProvider);
     final theme = Theme.of(context);
+    final small = theme.textTheme.bodySmall;
 
-    Widget? compareLine;
-    if (poliItems.isEmpty) {
-      compareLine = null;
-    } else if (_progress != null) {
-      compareLine = Row(children: [
-        const SizedBox(
-            width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
-        const SizedBox(width: 8),
-        Expanded(child: Text(_progress!, style: theme.textTheme.bodySmall)),
-      ]);
-    } else if (quotes.isEmpty) {
-      compareLine = InkWell(
-        onTap: _compare,
-        child: Text('Confronta con ${other.shortName} →',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.primary)),
-      );
-    } else {
-      final o = otherStoreTotal(poliItems, quotes);
-      final diff = round2(o.total - cartTotals(poliItems).total);
-      final name = other.addressId == kPoliGardoloId ? 'Gardolo' : other.shortName;
-      final text = diff > 0
-          ? 'Qui risparmi ${eur(diff)}'
-          : diff < 0
-              ? 'A $name spenderesti ${eur(-diff)} in meno'
-              : 'Stesso totale a $name';
-      compareLine = InkWell(
-        onTap: _compare,
-        child: Text(
-          '$name: ${eur(o.total)} · $text'
-          '${o.missing > 0 ? ' (${o.missing} senza prezzo)' : ''}',
-          style: theme.textTheme.bodySmall,
+    final complete = storeTotals
+        .where((t) => t.missing == 0 && t.unavailable == null)
+        .toList();
+    final cheapest = complete.isEmpty
+        ? null
+        : complete.reduce((a, b) => a.total <= b.total ? a : b);
+    final needsPoli = storeTotals.any(
+      (t) =>
+          t.store.chain == Chain.poli &&
+          !t.store.isOnline &&
+          t.unavailable != null,
+    );
+
+    final rows = <Widget>[
+      for (final t in storeTotals)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 1),
+          child: Row(
+            children: [
+              Icon(
+                t == cheapest ? Icons.star : Icons.store_outlined,
+                size: 14,
+                color: t == cheapest ? theme.colorScheme.primary : null,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  t.unavailable ??
+                      '${t.store.shortLabel}${t.missing > 0 ? ' (${t.missing} senza prezzo)' : ''}',
+                  style: small,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (t.unavailable == null) ...[
+                Text(
+                  eur(t.total),
+                  style: small?.copyWith(
+                    fontWeight: t == cheapest ? FontWeight.bold : null,
+                  ),
+                ),
+                SizedBox(
+                  width: 64,
+                  child: Text(
+                    () {
+                      final d = round2(t.total - totals.total);
+                      return d == 0
+                          ? '='
+                          : '${d > 0 ? '+' : '−'}${eur(d.abs())}';
+                    }(),
+                    textAlign: TextAlign.end,
+                    style: small,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
-      );
-    }
+    ];
 
     return Material(
       elevation: 8,
@@ -302,80 +364,75 @@ class _SummaryBarState extends ConsumerState<_SummaryBar> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              InkWell(
+                onTap: () => setState(() => _expanded = !_expanded),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${totals.pieces} pezzi',
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                          if (totals.saving > 0)
+                            Text(
+                              'Risparmio ${eur(totals.saving)}',
+                              style: small?.copyWith(
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          if (cheapest != null && !_expanded)
+                            Text(
+                              'Più conveniente: ${cheapest.store.shortLabel} '
+                              '${eur(cheapest.total)}',
+                              style: small,
+                            ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      eur(totals.total),
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Icon(_expanded ? Icons.expand_more : Icons.expand_less),
+                  ],
+                ),
+              ),
+              if (_expanded) ...[
+                const SizedBox(height: 6),
+                ...rows,
+                if (_progress != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(
                       children: [
-                        Text('${totals.pieces} pezzi',
-                            style: theme.textTheme.bodyMedium),
-                        if (totals.saving > 0)
-                          Text('Risparmio ${eur(totals.saving)}',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.primary)),
+                        const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(_progress!, style: small)),
                       ],
                     ),
+                  )
+                else if (needsPoli)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _refreshPoli,
+                      icon: const Icon(Icons.sync, size: 16),
+                      label: const Text('Aggiorna prezzi dei negozi Poli'),
+                    ),
                   ),
-                  Text(eur(totals.total),
-                      style: theme.textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold)),
-                ],
-              ),
-              if (compareLine != null) ...[
-                const SizedBox(height: 4),
-                Align(alignment: Alignment.centerLeft, child: compareLine),
               ],
-              const SizedBox(height: 2),
-              const Align(
-                  alignment: Alignment.centerLeft, child: _CrossChainLine()),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// "Da Coop spenderesti X €": totale delle righe nell'altra catena.
-class _CrossChainLine extends ConsumerWidget {
-  const _CrossChainLine();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final items = ref.watch(cartProvider);
-    final cross = ref.watch(crossChainProvider);
-    final theme = Theme.of(context);
-    final style = theme.textTheme.bodySmall;
-    final relevant = items.where((i) => i.product.productId > 0).toList();
-    if (relevant.isEmpty) return const SizedBox.shrink();
-    final chains = relevant.map((i) => i.product.chain.other).toSet();
-    final name = chains.length == 1 ? chains.first.label : "l'altra catena";
-    final pending = relevant.where((i) => !cross.containsKey(i.id)).length;
-    final quotes = {
-      for (final e in cross.entries)
-        if (e.value != null) e.key: e.value!,
-    };
-    if (quotes.isEmpty) {
-      return Text(
-          pending > 0 ? 'Cerco i prezzi $name…' : 'Nessun articolo a listino $name',
-          style: style);
-    }
-    final o = otherStoreTotal(relevant, quotes, keyOf: (i) => i.id);
-    final here = cartTotals(relevant).total;
-    final diff = round2(o.total - here);
-    final missing = relevant.length - quotes.length;
-    final verdict = diff > 0
-        ? 'qui risparmi ${eur(diff)}'
-        : diff < 0
-            ? 'da $name spenderesti ${eur(-diff)} in meno'
-            : 'stesso totale';
-    return InkWell(
-      onTap: ref.read(crossChainProvider.notifier).refresh,
-      child: Text(
-        '$name: ${eur(o.total)} · $verdict'
-        '${missing > 0 ? ' ($missing senza prezzo)' : ''}',
-        style: style,
       ),
     );
   }

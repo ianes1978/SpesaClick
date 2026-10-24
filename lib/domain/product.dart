@@ -65,7 +65,9 @@ abstract class Product with _$Product {
     }
     double? listPrice;
     for (final c in [asDouble(m['priceStandardDisplay']), fullPrice]) {
-      if (c != null && c > price + 0.001 && (listPrice == null || c > listPrice)) {
+      if (c != null &&
+          c > price + 0.001 &&
+          (listPrice == null || c > listPrice)) {
         listPrice = c;
       }
     }

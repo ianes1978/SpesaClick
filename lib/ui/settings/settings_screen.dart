@@ -26,29 +26,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final dir = await getTemporaryDirectory();
     final file = File(p.join(dir.path, name));
     await file.writeAsString(content);
-    await SharePlus.instance.share(ShareParams(
-      files: [XFile(file.path)],
-      subject: name,
-    ));
+    await SharePlus.instance.share(
+      ShareParams(files: [XFile(file.path)], subject: name),
+    );
   }
 
   Future<void> _export(String what, String format) async {
     final stamp = DateTime.now().toIso8601String().substring(0, 10);
     if (what == 'cart') {
       final items = ref.read(cartProvider);
-      await _share('carrello_$stamp.$format',
-          format == 'csv' ? cartToCsv(items) : cartToJson(items));
+      await _share(
+        'carrello_$stamp.$format',
+        format == 'csv' ? cartToCsv(items) : cartToJson(items),
+      );
     } else {
       final products = await ref.read(dbProvider).allCatalog();
       if (products.isEmpty) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Scarica prima il listino offline.')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Scarica prima il listino offline.')),
+          );
         }
         return;
       }
-      await _share('listino_$stamp.$format',
-          format == 'csv' ? productsToCsv(products) : productsToJson(products));
+      await _share(
+        'listino_$stamp.$format',
+        format == 'csv' ? productsToCsv(products) : productsToJson(products),
+      );
     }
   }
 
@@ -63,42 +67,53 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         children: [
           _Header('Account DupliClick (Poli)'),
           ListTile(
-            leading: Icon(session.status == SessionStatus.connected
-                ? Icons.check_circle
-                : Icons.link_off),
+            leading: Icon(
+              session.status == SessionStatus.connected
+                  ? Icons.check_circle
+                  : Icons.link_off,
+            ),
             title: Text(session.label),
             subtitle: const Text(
-                'Con il login i prezzi sono quelli del punto vendita scelto.'),
+              'Con il login i prezzi sono quelli del punto vendita scelto.',
+            ),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Wrap(spacing: 8, children: [
-              FilledButton.icon(
-                onPressed: () => context.push('/login'),
-                icon: const Icon(Icons.login),
-                label: Text(session.status == SessionStatus.none
-                    ? 'Collega DupliClick'
-                    : 'Ricollega'),
-              ),
-              if (session.status != SessionStatus.none) ...[
-                OutlinedButton(
-                  onPressed: () => ref.read(sessionProvider.notifier).verify(),
-                  child: const Text('Verifica'),
+            child: Wrap(
+              spacing: 8,
+              children: [
+                FilledButton.icon(
+                  onPressed: () => context.push('/login'),
+                  icon: const Icon(Icons.login),
+                  label: Text(
+                    session.status == SessionStatus.none
+                        ? 'Collega DupliClick'
+                        : 'Ricollega',
+                  ),
                 ),
-                OutlinedButton(
-                  onPressed: () =>
-                      ref.read(sessionProvider.notifier).disconnect(),
-                  child: const Text('Scollega'),
-                ),
+                if (session.status != SessionStatus.none) ...[
+                  OutlinedButton(
+                    onPressed: () =>
+                        ref.read(sessionProvider.notifier).verify(),
+                    child: const Text('Verifica'),
+                  ),
+                  OutlinedButton(
+                    onPressed: () =>
+                        ref.read(sessionProvider.notifier).disconnect(),
+                    child: const Text('Scollega'),
+                  ),
+                ],
               ],
-            ]),
+            ),
           ),
           _Header('Click&Coop (Coop Trentino)'),
           const ListTile(
             leading: Icon(Icons.info_outline),
             title: Text('Nessun login necessario'),
-            subtitle: Text('Prezzi del listino online Click&Coop, uguali per '
-                'tutti i punti di ritiro: in negozio possono differire.'),
+            subtitle: Text(
+              'Prezzi del listino online Click&Coop, uguali per '
+              'tutti i punti di ritiro: in negozio possono differire.',
+            ),
           ),
           const _CoopPickupTile(),
           _Header('Listino offline'),
@@ -108,26 +123,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.shopping_cart_outlined),
             title: const Text('Carrello'),
-            trailing: Wrap(spacing: 4, children: [
-              TextButton(
+            trailing: Wrap(
+              spacing: 4,
+              children: [
+                TextButton(
                   onPressed: () => _export('cart', 'csv'),
-                  child: const Text('CSV')),
-              TextButton(
+                  child: const Text('CSV'),
+                ),
+                TextButton(
                   onPressed: () => _export('cart', 'json'),
-                  child: const Text('JSON')),
-            ]),
+                  child: const Text('JSON'),
+                ),
+              ],
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.list_alt),
             title: const Text('Catalogo (listini offline)'),
-            trailing: Wrap(spacing: 4, children: [
-              TextButton(
+            trailing: Wrap(
+              spacing: 4,
+              children: [
+                TextButton(
                   onPressed: () => _export('catalog', 'csv'),
-                  child: const Text('CSV')),
-              TextButton(
+                  child: const Text('CSV'),
+                ),
+                TextButton(
                   onPressed: () => _export('catalog', 'json'),
-                  child: const Text('JSON')),
-            ]),
+                  child: const Text('JSON'),
+                ),
+              ],
+            ),
           ),
           _Header('Informazioni'),
           Padding(
@@ -168,16 +193,22 @@ class _OfflineCatalogTileState extends ConsumerState<_OfflineCatalogTile> {
     });
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await for (final pr in ref
-          .read(productRepoProvider(widget.chain))
-          .downloadCatalog(cancelled: () => _cancel)) {
+      await for (final pr
+          in ref
+              .read(productRepoProvider(widget.chain))
+              .downloadCatalog(cancelled: () => _cancel)) {
         if (mounted) setState(() => _progress = pr);
       }
-      messenger.showSnackBar(SnackBar(
-          content: Text(_cancel
-              ? 'Download interrotto.'
-              : 'Listino ${widget.chain.serviceName} scaricato: '
-                  '${_progress?.items ?? 0} prodotti.')));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            _cancel
+                ? 'Download interrotto.'
+                : 'Listino ${widget.chain.serviceName} scaricato: '
+                      '${_progress?.items ?? 0} prodotti.',
+          ),
+        ),
+      );
     } on ApiException catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
@@ -196,33 +227,39 @@ class _OfflineCatalogTileState extends ConsumerState<_OfflineCatalogTile> {
     } else if (info.downloadedAt == null) {
       subtitle = '${info.count} prodotti (download incompleto)';
     } else {
-      subtitle =
-          '${info.count} prodotti · ${shortDate(info.downloadedAt!)}';
+      subtitle = '${info.count} prodotti · ${shortDate(info.downloadedAt!)}';
     }
-    return Column(children: [
-      ListTile(
-        leading: const Icon(Icons.cloud_download_outlined),
-        title: Text(widget.chain.serviceName),
-        subtitle: Text(subtitle),
-        trailing: _downloading
-            ? TextButton(
-                onPressed: () => setState(() => _cancel = true),
-                child: const Text('Interrompi'))
-            : TextButton(onPressed: _download, child: const Text('Scarica')),
-      ),
-      if (_downloading)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: Column(children: [
-            LinearProgressIndicator(value: pr?.fraction),
-            const SizedBox(height: 4),
-            Text(pr == null
-                ? 'Avvio…'
-                : '${pr.label ?? 'Pagina ${pr.done}/${pr.total}'} · '
-                    '${pr.items} prodotti'),
-          ]),
+    return Column(
+      children: [
+        ListTile(
+          leading: const Icon(Icons.cloud_download_outlined),
+          title: Text(widget.chain.serviceName),
+          subtitle: Text(subtitle),
+          trailing: _downloading
+              ? TextButton(
+                  onPressed: () => setState(() => _cancel = true),
+                  child: const Text('Interrompi'),
+                )
+              : TextButton(onPressed: _download, child: const Text('Scarica')),
         ),
-    ]);
+        if (_downloading)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Column(
+              children: [
+                LinearProgressIndicator(value: pr?.fraction),
+                const SizedBox(height: 4),
+                Text(
+                  pr == null
+                      ? 'Avvio…'
+                      : '${pr.label ?? 'Pagina ${pr.done}/${pr.total}'} · '
+                            '${pr.items} prodotti',
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
   }
 }
 
@@ -241,10 +278,12 @@ class _CoopPickupTile extends ConsumerWidget {
             ListTile(
               dense: true,
               title: Text(s.name),
-              subtitle: Text([s.address, s.city]
-                  .whereType<String>()
-                  .where((e) => e.isNotEmpty)
-                  .join(', ')),
+              subtitle: Text(
+                [
+                  s.address,
+                  s.city,
+                ].whereType<String>().where((e) => e.isNotEmpty).join(', '),
+              ),
             ),
         ],
         loading: () => const [LinearProgressIndicator()],
@@ -260,11 +299,11 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-        child: Text(text,
-            style: Theme.of(context)
-                .textTheme
-                .titleSmall
-                ?.copyWith(color: Theme.of(context).colorScheme.primary)),
-      );
+    padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+    child: Text(
+      text,
+      style: Theme.of(context).textTheme.titleSmall
+          ?.copyWith(color: Theme.of(context).colorScheme.primary),
+    ),
+  );
 }

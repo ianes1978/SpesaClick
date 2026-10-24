@@ -24,21 +24,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _linking = false;
 
   Future<EbsnSession> _readSession() async {
-    final cookies = await CookieManager.instance()
-        .getCookies(url: WebUri('$kDupliclickOrigin/ebsn/'));
+    final cookies = await CookieManager.instance().getCookies(
+      url: WebUri('$kDupliclickOrigin/ebsn/'),
+    );
     final js = cookies.where((c) => c.name == 'JSESSIONID').firstOrNull;
     String? session, account;
     final web = _web;
     if (web != null) {
-      session = _clean(await web.evaluateJavascript(
-          source: "sessionStorage.getItem('X-Ebsn-Session')"));
-      account = _clean(await web.evaluateJavascript(
-          source: "localStorage.getItem('X-Ebsn-Account')"));
+      session = _clean(
+        await web.evaluateJavascript(
+          source: "sessionStorage.getItem('X-Ebsn-Session')",
+        ),
+      );
+      account = _clean(
+        await web.evaluateJavascript(
+          source: "localStorage.getItem('X-Ebsn-Account')",
+        ),
+      );
     }
     if (kDebugMode) {
       debugPrint('Cookie ebsn: ${cookies.map((c) => c.name).toList()}');
-      debugPrint('X-Ebsn-Session presente: ${session != null}, '
-          'X-Ebsn-Account presente: ${account != null}');
+      debugPrint(
+        'X-Ebsn-Session presente: ${session != null}, '
+        'X-Ebsn-Account presente: ${account != null}',
+      );
     }
     return EbsnSession(
       jsessionId: js?.value?.toString(),
@@ -64,8 +73,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       final s = await _readSession();
       if (s.isEmpty) {
-        messenger.showSnackBar(const SnackBar(
-            content: Text('Nessuna sessione trovata: hai fatto il login?')));
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Nessuna sessione trovata: hai fatto il login?'),
+          ),
+        );
         return;
       }
       await ref.read(sessionProvider.notifier).connect(s);
@@ -110,8 +122,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
           Expanded(
             child: InAppWebView(
-              initialUrlRequest:
-                  URLRequest(url: WebUri('$kDupliclickOrigin/')),
+              initialUrlRequest: URLRequest(url: WebUri('$kDupliclickOrigin/')),
               initialSettings: InAppWebViewSettings(
                 javaScriptEnabled: true,
                 domStorageEnabled: true,
@@ -132,7 +143,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ? const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2))
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : const Icon(Icons.link),
             label: const Text('Collega'),
           ),

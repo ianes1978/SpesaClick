@@ -13,40 +13,40 @@ Product product({
   double? listPrice,
   double? ppk,
   String tipologia = 'Pezzo',
-}) =>
-    Product(
-      productId: 1,
-      barcode: barcode,
-      name: 'Prodotto',
-      price: price,
-      listPrice: listPrice,
-      pricePerKg: ppk,
-      tipologia: tipologia,
-    );
+}) => Product(
+  productId: 1,
+  barcode: barcode,
+  name: 'Prodotto',
+  price: price,
+  listPrice: listPrice,
+  pricePerKg: ppk,
+  tipologia: tipologia,
+);
 
-CartItem item(Product p,
-        {int qty = 1,
-        int pct = 0,
-        double? weight,
-        double? label,
-        PriceSource source = PriceSource.store,
-        double? price}) =>
-    CartItem(
-      id: p.barcode,
-      product: p,
-      quote: PriceQuote(
-        price: price ?? p.price,
-        listPrice: p.listPrice,
-        pricePerKg: p.pricePerKg,
-        source: source,
-        readAt: _t,
-      ),
-      quantity: qty,
-      discountPercent: pct,
-      weightKg: weight,
-      labelTotal: label,
-      addedAt: _t,
-    );
+CartItem item(
+  Product p, {
+  int qty = 1,
+  int pct = 0,
+  double? weight,
+  double? label,
+  PriceSource source = PriceSource.store,
+  double? price,
+}) => CartItem(
+  id: p.barcode,
+  product: p,
+  quote: PriceQuote(
+    price: price ?? p.price,
+    listPrice: p.listPrice,
+    pricePerKg: p.pricePerKg,
+    source: source,
+    readAt: _t,
+  ),
+  quantity: qty,
+  discountPercent: pct,
+  weightKg: weight,
+  labelTotal: label,
+  addedAt: _t,
+);
 
 void main() {
   test('pezzi: prezzo × quantità', () {
@@ -80,8 +80,9 @@ void main() {
   });
 
   test('promo + bollino si sommano nel risparmio', () {
-    final t = cartTotals(
-        [item(product(price: 2.00, listPrice: 3.00), pct: 50)]);
+    final t = cartTotals([
+      item(product(price: 2.00, listPrice: 3.00), pct: 50),
+    ]);
     expect(t.total, 1.00);
     expect(t.stickerSaving, 1.00);
     expect(t.promoSaving, 1.00);
@@ -108,12 +109,18 @@ void main() {
   test('etichetta bilancia: il prezzo stampato è il totale', () {
     final label = ScaleLabel.tryParse('2060120012343')!;
     final p = product(
-        barcode: label.lookupBarcode, tipologia: 'Sfuso', price: 0, ppk: 19.90);
-    final it = item(p,
-        source: PriceSource.label,
-        price: label.total,
-        label: label.total,
-        weight: label.total / 19.90);
+      barcode: label.lookupBarcode,
+      tipologia: 'Sfuso',
+      price: 0,
+      ppk: 19.90,
+    );
+    final it = item(
+      p,
+      source: PriceSource.label,
+      price: label.total,
+      label: label.total,
+      weight: label.total / 19.90,
+    );
     expect(it.isVariableWeight, isTrue);
     expect(it.weightKg, closeTo(0.620, 0.001));
     final l = lineTotals(it);
@@ -124,12 +131,18 @@ void main() {
   test("totale nell'altro negozio", () {
     final a = item(product(barcode: 'A', price: 2.00), qty: 2);
     final b = item(product(barcode: 'B', price: 1.00));
-    final c = item(product(barcode: 'C', tipologia: 'Sfuso', ppk: 10),
-        weight: 0.5);
+    final c = item(
+      product(barcode: 'C', tipologia: 'Sfuso', ppk: 10),
+      weight: 0.5,
+    );
     final other = {
       'A': PriceQuote(price: 1.80, source: PriceSource.store, readAt: _t),
       'C': PriceQuote(
-          price: 0, pricePerKg: 12, source: PriceSource.store, readAt: _t),
+        price: 0,
+        pricePerKg: 12,
+        source: PriceSource.store,
+        readAt: _t,
+      ),
     };
     final o = otherStoreTotal([a, b, c], other);
     // A 3.60 + B 1.00 (mancante: prezzo attuale) + C 6.00

@@ -47,8 +47,7 @@ class EbsnSession {
   final String? ebsnSession;
   final String? ebsnAccount;
 
-  bool get isEmpty =>
-      (jsessionId ?? '').isEmpty && (ebsnSession ?? '').isEmpty;
+  bool get isEmpty => (jsessionId ?? '').isEmpty && (ebsnSession ?? '').isEmpty;
 
   EbsnSession copyWith({String? jsessionId, String? ebsnSession}) =>
       EbsnSession(
@@ -77,19 +76,22 @@ class EbsnApi {
     this.sleep = _defaultSleep,
     this.onSessionChanged,
     this.onSessionExpired,
-  })  : minInterval = minInterval ?? config.minInterval,
-        cookieJar = cookieJar ?? CookieJar(),
-        dio = dio ??
-            Dio(BaseOptions(
-              baseUrl: config.baseUrl,
-              connectTimeout: const Duration(seconds: 20),
-              receiveTimeout: const Duration(seconds: 20),
-              sendTimeout: const Duration(seconds: 20),
-              // Il corpo è JSON servito come text/html: lo leggiamo come testo.
-              responseType: ResponseType.plain,
-              // Gestiamo noi i codici d'errore (419 compreso).
-              validateStatus: (_) => true,
-            )) {
+  }) : minInterval = minInterval ?? config.minInterval,
+       cookieJar = cookieJar ?? CookieJar(),
+       dio =
+           dio ??
+           Dio(
+             BaseOptions(
+               baseUrl: config.baseUrl,
+               connectTimeout: const Duration(seconds: 20),
+               receiveTimeout: const Duration(seconds: 20),
+               sendTimeout: const Duration(seconds: 20),
+               // Il corpo è JSON servito come text/html: lo leggiamo come testo.
+               responseType: ResponseType.plain,
+               // Gestiamo noi i codici d'errore (419 compreso).
+               validateStatus: (_) => true,
+             ),
+           ) {
     this.dio.interceptors.addAll([
       if (config.supportsSession) CookieManager(this.cookieJar),
       InterceptorsWrapper(onRequest: _onRequest, onResponse: _onResponse),
@@ -164,8 +166,7 @@ class EbsnApi {
     });
   }
 
-  Future<void> _onRequest(
-      RequestOptions o, RequestInterceptorHandler h) async {
+  Future<void> _onRequest(RequestOptions o, RequestInterceptorHandler h) async {
     await _waitTurn();
     o.headers['Accept'] = 'application/json';
     o.headers['X-Ebsn-Client'] = 'production';
@@ -208,17 +209,20 @@ class EbsnApi {
     String path, {
     Map<String, dynamic>? query,
   }) async {
-    for (var attempt = 0;; attempt++) {
+    for (var attempt = 0; ; attempt++) {
       try {
         return await _requestOnce(method, path, query: query);
       } on ApiException catch (e) {
-        final retriable = e is NetworkException ||
+        final retriable =
+            e is NetworkException ||
             (config.retryServerErrors &&
                 e is ApiServerException &&
                 e.statusCode == null);
         if (!retriable || attempt >= config.maxRetries) rethrow;
-        debugPrint('${config.chain.serviceName}: nuovo tentativo '
-            '${attempt + 1}/${config.maxRetries} per $path ($e)');
+        debugPrint(
+          '${config.chain.serviceName}: nuovo tentativo '
+          '${attempt + 1}/${config.maxRetries} per $path ($e)',
+        );
         await sleep(config.backoff(attempt + 1));
       }
     }
@@ -255,8 +259,10 @@ class EbsnApi {
     if (json == null) throw const ApiFormatException('il corpo non è JSON');
     final status = asInt(asMap(json['response'])?['status']);
     if (status != null && status != 0) {
-      throw ApiServerException(_errorText(json) ??
-          '${config.chain.serviceName} ha risposto con stato $status');
+      throw ApiServerException(
+        _errorText(json) ??
+            '${config.chain.serviceName} ha risposto con stato $status',
+      );
     }
     return json;
   }
@@ -314,7 +320,8 @@ class EbsnApi {
   void _requireSession() {
     if (!config.supportsSession) {
       throw ApiServerException(
-          '${config.chain.serviceName} non supporta questa operazione');
+        '${config.chain.serviceName} non supporta questa operazione',
+      );
     }
   }
 
@@ -322,8 +329,11 @@ class EbsnApi {
 
   /// Prodotto per EAN (match esatto). NB: `q=<EAN>` non funziona.
   Future<Product?> productByBarcode(String ean) async {
-    final json = await _request('GET', '/products',
-        query: {'barcode': ean, 'page_size': 1});
+    final json = await _request(
+      'GET',
+      '/products',
+      query: {'barcode': ean, 'page_size': 1},
+    );
     final page = _parsePage(json);
     return page.products.where((p) => p.barcode == ean).firstOrNull ??
         page.products.firstOrNull;
@@ -331,24 +341,37 @@ class EbsnApi {
 
   /// Ricerca testuale. Con `q` vuoto DupliClick restituisce l'intero
   /// listino, Click&Coop un errore.
-  Future<ProductPage> searchProducts(String q,
-      {int page = 1, int pageSize = 24}) async {
+  Future<ProductPage> searchProducts(
+    String q, {
+    int page = 1,
+    int pageSize = 24,
+  }) async {
     if (q.trim().isEmpty && !config.emptyQueryListsAll) {
       return const ProductPage(products: [], page: 1, totPages: 1, totItems: 0);
     }
-    final json = await _request('GET', '/products',
-        query: {'q': q, 'page': page, 'page_size': pageSize});
+    final json = await _request(
+      'GET',
+      '/products',
+      query: {'q': q, 'page': page, 'page_size': pageSize},
+    );
     return _parsePage(json);
   }
 
   /// Prodotti di una categoria.
-  Future<ProductPage> productsByCategory(int categoryId,
-      {int page = 1, int pageSize = 24}) async {
-    final json = await _request('GET', '/products', query: {
-      'parent_category_id': categoryId,
-      'page': page,
-      'page_size': pageSize,
-    });
+  Future<ProductPage> productsByCategory(
+    int categoryId, {
+    int page = 1,
+    int pageSize = 24,
+  }) async {
+    final json = await _request(
+      'GET',
+      '/products',
+      query: {
+        'parent_category_id': categoryId,
+        'page': page,
+        'page_size': pageSize,
+      },
+    );
     return _parsePage(json);
   }
 
@@ -360,15 +383,21 @@ class EbsnApi {
     return [
       for (final c in raw.map(asMap).whereType<Map<String, dynamic>>())
         if (asInt(c['categoryId']) != null && asString(c['name']) != null)
-          EbsnCategory(asInt(c['categoryId'])!, asString(c['name'])!,
-              asString(c['slug'])),
+          EbsnCategory(
+            asInt(c['categoryId'])!,
+            asString(c['name'])!,
+            asString(c['slug']),
+          ),
     ];
   }
 
   /// Punti vendita / punti di ritiro.
   Future<List<Store>> deliveryServiceList({int deliveryServiceId = 1}) async {
-    final json = await _request('GET', '/address/delivery-service-list',
-        query: {'delivery_service_id': deliveryServiceId});
+    final json = await _request(
+      'GET',
+      '/address/delivery-service-list',
+      query: {'delivery_service_id': deliveryServiceId},
+    );
     final data = json['data'];
     List<dynamic>? list;
     if (data is List) {
@@ -409,10 +438,14 @@ class EbsnApi {
     int deliveryServiceId = 1,
   }) async {
     _requireSession();
-    await _request('POST', '/user-address/select', query: {
-      'address_type': addressType,
-      'address_id': addressId,
-      'delivery_service_id': deliveryServiceId,
-    });
+    await _request(
+      'POST',
+      '/user-address/select',
+      query: {
+        'address_type': addressType,
+        'address_id': addressId,
+        'delivery_service_id': deliveryServiceId,
+      },
+    );
   }
 }

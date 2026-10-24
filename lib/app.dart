@@ -8,6 +8,7 @@ import 'ui/cart/scanner_screen.dart';
 import 'ui/catalog/catalog_screen.dart';
 import 'ui/login/login_screen.dart';
 import 'ui/settings/settings_screen.dart';
+import 'ui/stores/stores_screen.dart';
 
 const kBrandGreen = Color(0xFF008C45);
 
@@ -20,25 +21,40 @@ final router = GoRouter(
     StatefulShellRoute.indexedStack(
       builder: (context, state, shell) => _HomeShell(shell),
       branches: [
-        StatefulShellBranch(routes: [
-          GoRoute(path: '/cart', builder: (_, _) => const CartScreen()),
-        ]),
-        StatefulShellBranch(routes: [
-          GoRoute(path: '/catalog', builder: (_, _) => const CatalogScreen()),
-        ]),
-        StatefulShellBranch(routes: [
-          GoRoute(path: '/card', builder: (_, _) => const CardScreen()),
-        ]),
-        StatefulShellBranch(routes: [
-          GoRoute(
-              path: '/settings', builder: (_, _) => const SettingsScreen()),
-        ]),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(path: '/cart', builder: (_, _) => const CartScreen()),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(path: '/catalog', builder: (_, _) => const CatalogScreen()),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(path: '/card', builder: (_, _) => const CardScreen()),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/settings',
+              builder: (_, _) => const SettingsScreen(),
+            ),
+          ],
+        ),
       ],
     ),
     GoRoute(
       path: '/scanner',
       parentNavigatorKey: _rootKey,
       builder: (_, _) => const ScannerScreen(),
+    ),
+    GoRoute(
+      path: '/stores',
+      parentNavigatorKey: _rootKey,
+      builder: (_, _) => const StoresScreen(),
     ),
     GoRoute(
       path: '/login',
@@ -57,13 +73,11 @@ class SpesaTrentoApp extends StatelessWidget {
   const SpesaTrentoApp({super.key});
 
   ThemeData _theme(Brightness b) {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: kBrandGreen,
-      brightness: b,
-    ).copyWith(
-      primary: b == Brightness.light ? kBrandGreen : null,
-      onPrimary: b == Brightness.light ? Colors.white : null,
-    );
+    final scheme = ColorScheme.fromSeed(seedColor: kBrandGreen, brightness: b)
+        .copyWith(
+          primary: b == Brightness.light ? kBrandGreen : null,
+          onPrimary: b == Brightness.light ? Colors.white : null,
+        );
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
@@ -103,17 +117,20 @@ class _HomeShell extends StatelessWidget {
             shell.goBranch(i, initialLocation: i == shell.currentIndex),
         destinations: const [
           NavigationDestination(
-              icon: Icon(Icons.shopping_cart_outlined),
-              selectedIcon: Icon(Icons.shopping_cart),
-              label: 'Carrello'),
+            icon: Icon(Icons.shopping_cart_outlined),
+            selectedIcon: Icon(Icons.shopping_cart),
+            label: 'Carrello',
+          ),
+          NavigationDestination(icon: Icon(Icons.search), label: 'Catalogo'),
           NavigationDestination(
-              icon: Icon(Icons.search), label: 'Catalogo'),
+            icon: Icon(Icons.credit_card),
+            label: 'Tessera',
+          ),
           NavigationDestination(
-              icon: Icon(Icons.credit_card), label: 'Tessera'),
-          NavigationDestination(
-              icon: Icon(Icons.settings_outlined),
-              selectedIcon: Icon(Icons.settings),
-              label: 'Altro'),
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: 'Altro',
+          ),
         ],
       ),
     );

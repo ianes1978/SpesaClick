@@ -31,8 +31,10 @@ void main() {
     });
 
     test('candidati di ricerca', () {
-      expect(barcodeCandidates('036000291452'),
-          ['036000291452', '0036000291452']);
+      expect(barcodeCandidates('036000291452'), [
+        '036000291452',
+        '0036000291452',
+      ]);
       expect(barcodeCandidates('8007049920131'), ['8007049920131']);
     });
   });

@@ -12,8 +12,11 @@ class WeightResult {
 }
 
 /// Peso (kg) ↔ totale etichetta (€) sincronizzati, prezzo al kg modificabile.
-Future<WeightResult?> showWeightDialog(BuildContext context, CartItem item,
-    {String? title}) {
+Future<WeightResult?> showWeightDialog(
+  BuildContext context,
+  CartItem item, {
+  String? title,
+}) {
   return showDialog<WeightResult>(
     context: context,
     builder: (_) => _WeightDialog(item, title),
@@ -31,14 +34,21 @@ class _WeightDialog extends StatefulWidget {
 
 class _WeightDialogState extends State<_WeightDialog> {
   late final _ppk = TextEditingController(
-      text: _fmt(widget.item.effectivePricePerKg, 2));
-  late final _weight = TextEditingController(text: _fmt(widget.item.weightKg, 3));
+    text: _fmt(widget.item.effectivePricePerKg, 2),
+  );
+  late final _weight = TextEditingController(
+    text: _fmt(widget.item.weightKg, 3),
+  );
   late final _total = TextEditingController(
-      text: _fmt(widget.item.labelTotal ??
+    text: _fmt(
+      widget.item.labelTotal ??
           (widget.item.weightKg != null &&
                   widget.item.effectivePricePerKg != null
               ? round2(widget.item.weightKg! * widget.item.effectivePricePerKg!)
-              : null), 2));
+              : null),
+      2,
+    ),
+  );
 
   /// Il totale è stato inserito a mano (es. letto sull'etichetta).
   late bool _totalIsLabel = widget.item.labelTotal != null;
@@ -72,53 +82,74 @@ class _WeightDialogState extends State<_WeightDialog> {
   Widget build(BuildContext context) {
     final unit = widget.item.product.weightUnit ?? 'kg';
     return AlertDialog(
-      title: Text(widget.item.product.name,
-          maxLines: 2, overflow: TextOverflow.ellipsis),
-      content: SingleChildScrollView(child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (widget.message != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(widget.message!),
+      title: Text(
+        widget.item.product.name,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.message != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(widget.message!),
+              ),
+            TextField(
+              controller: _ppk,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: InputDecoration(
+                labelText: 'Prezzo al $unit (€)',
+                prefixIcon: const Icon(Icons.euro),
+              ),
+              onChanged: (_) => _fromPpk(),
             ),
-          TextField(
-            controller: _ppk,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-                labelText: 'Prezzo al $unit (€)', prefixIcon: const Icon(Icons.euro)),
-            onChanged: (_) => _fromPpk(),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _weight,
-            autofocus: widget.item.weightKg == null,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-                labelText: 'Peso ($unit)', prefixIcon: const Icon(Icons.scale)),
-            onChanged: (_) => _fromWeight(),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _total,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
+            const SizedBox(height: 12),
+            TextField(
+              controller: _weight,
+              autofocus: widget.item.weightKg == null,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: InputDecoration(
+                labelText: 'Peso ($unit)',
+                prefixIcon: const Icon(Icons.scale),
+              ),
+              onChanged: (_) => _fromWeight(),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _total,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(
                 labelText: 'Totale etichetta (€)',
-                prefixIcon: Icon(Icons.receipt_long)),
-            onChanged: (_) => _fromTotal(),
-          ),
-        ],
-      )),
+                prefixIcon: Icon(Icons.receipt_long),
+              ),
+              onChanged: (_) => _fromTotal(),
+            ),
+          ],
+        ),
+      ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context), child: const Text('Annulla')),
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Annulla'),
+        ),
         FilledButton(
           onPressed: () {
             final total = parseDecimal(_total.text);
             Navigator.pop(
               context,
-              WeightResult(parseDecimal(_weight.text),
-                  _totalIsLabel ? total : null, parseDecimal(_ppk.text)),
+              WeightResult(
+                parseDecimal(_weight.text),
+                _totalIsLabel ? total : null,
+                parseDecimal(_ppk.text),
+              ),
             );
           },
           child: const Text('OK'),
