@@ -22,12 +22,19 @@ class FixedAdapter implements HttpClientAdapter {
   final requests = <RequestOptions>[];
 
   @override
-  Future<ResponseBody> fetch(RequestOptions options,
-      Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
     requests.add(options);
-    return ResponseBody.fromString(body, 200, headers: {
-      Headers.contentTypeHeader: ['text/html'],
-    });
+    return ResponseBody.fromString(
+      body,
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['text/html'],
+      },
+    );
   }
 
   @override
@@ -51,23 +58,28 @@ void main() {
 
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
-    final poliFixture =
-        File('test/fixtures/products_response.json').readAsStringSync();
+    final poliFixture = File('test/fixtures/products_response.json')
+        .readAsStringSync();
     poliOnlineA = FixedAdapter(poliFixture);
     poliSessionA = FixedAdapter(poliFixture);
     coopA = FixedAdapter(_empty);
     cartStore = null;
     svc = PriceService(
       poliOnline: ProductRepository(
-          api: api(EbsnConfig.poli, poliOnlineA),
-          db: db,
-          currentStoreId: () => null),
+        api: api(EbsnConfig.poli, poliOnlineA),
+        db: db,
+        currentStoreId: () => null,
+      ),
       poliSession: ProductRepository(
-          api: api(EbsnConfig.poli, poliSessionA),
-          db: db,
-          currentStoreId: () => cartStore),
+        api: api(EbsnConfig.poli, poliSessionA),
+        db: db,
+        currentStoreId: () => cartStore,
+      ),
       coop: ProductRepository(
-          api: api(EbsnConfig.coop, coopA), db: db, currentStoreId: () => null),
+        api: api(EbsnConfig.coop, coopA),
+        db: db,
+        currentStoreId: () => null,
+      ),
       everli: EverliRepository(api: EverliApi(), db: db),
       cartStoreId: () => cartStore,
     );
@@ -75,9 +87,16 @@ void main() {
 
   tearDown(() => db.close());
 
-  const iper = PriceStore(chain: Chain.poli, storeId: 1412, name: 'Poli · IperPoli');
-  const gardolo =
-      PriceStore(chain: Chain.poli, storeId: 1103, name: 'Poli · Gardolo');
+  const iper = PriceStore(
+    chain: Chain.poli,
+    storeId: 1412,
+    name: 'Poli · IperPoli',
+  );
+  const gardolo = PriceStore(
+    chain: Chain.poli,
+    storeId: 1103,
+    name: 'Poli · Gardolo',
+  );
 
   test('listini online: Poli trovato, Coop non a listino', () async {
     final p = await svc.quote(PriceStore.poliOnline, '8007049920131');
@@ -85,30 +104,36 @@ void main() {
     final q = (p as QuoteFound).result.quote;
     expect(q.source, PriceSource.online);
     expect(PriceStore.idOfQuote(q), PriceStore.poliOnline.id);
-    expect(await svc.quote(PriceStore.coopOnline, '8007049920131'),
-        isA<QuoteNotFound>());
+    expect(
+      await svc.quote(PriceStore.coopOnline, '8007049920131'),
+      isA<QuoteNotFound>(),
+    );
     expect(poliOnlineA.requests, hasLength(1));
     expect(coopA.requests.single.uri.host, 'www.clickcoop.it');
   });
 
-  test('punto vendita Poli senza login: non disponibile, nessuna chiamata',
-      () async {
-    final r = await svc.quote(iper, '8007049920131');
-    expect(r, isA<QuoteUnavailable>());
-    expect((r as QuoteUnavailable).reason, contains('Collega DupliClick'));
-    expect(poliSessionA.requests, isEmpty);
-    expect(svc.isLive(iper), isFalse);
-  });
+  test(
+    'punto vendita Poli senza login: non disponibile, nessuna chiamata',
+    () async {
+      final r = await svc.quote(iper, '8007049920131');
+      expect(r, isA<QuoteUnavailable>());
+      expect((r as QuoteUnavailable).reason, contains('Collega DupliClick'));
+      expect(poliSessionA.requests, isEmpty);
+      expect(svc.isLive(iper), isFalse);
+    },
+  );
 
-  test('negozio attivo nel carrello: prezzo del punto vendita in diretta',
-      () async {
-    cartStore = 1412;
-    final r = await svc.quote(iper, '8007049920131') as QuoteFound;
-    expect(r.result.quote.source, PriceSource.store);
-    expect(r.result.quote.storeId, 1412);
-    expect(PriceStore.idOfQuote(r.result.quote), iper.id);
-    expect(poliSessionA.requests, hasLength(1));
-  });
+  test(
+    'negozio attivo nel carrello: prezzo del punto vendita in diretta',
+    () async {
+      cartStore = 1412;
+      final r = await svc.quote(iper, '8007049920131') as QuoteFound;
+      expect(r.result.quote.source, PriceSource.store);
+      expect(r.result.quote.storeId, 1412);
+      expect(PriceStore.idOfQuote(r.result.quote), iper.id);
+      expect(poliSessionA.requests, hasLength(1));
+    },
+  );
 
   test('altro negozio Poli: solo dalla cache del confronto', () async {
     cartStore = 1412;
@@ -133,11 +158,17 @@ void main() {
     expect(svc.isSearchable(s), isFalse);
     expect(await svc.quote(s, '8007049920131'), isA<QuoteManualMissing>());
     const ref = Product(
-        productId: 213319,
-        barcode: '8007049920131',
-        name: 'MOUSSE 100% MELA E BANANA',
-        price: 1.25);
-    final saved = await svc.setManualPrice(s, '8007049920131', ref, price: 0.99);
+      productId: 213319,
+      barcode: '8007049920131',
+      name: 'MOUSSE 100% MELA E BANANA',
+      price: 1.25,
+    );
+    final saved = await svc.setManualPrice(
+      s,
+      '8007049920131',
+      ref,
+      price: 0.99,
+    );
     expect((saved as QuoteFound).result.quote.price, 0.99);
     final again = await svc.quote(s, '8007049920131') as QuoteFound;
     expect(again.result.quote.source, PriceSource.manual);
@@ -147,7 +178,10 @@ void main() {
     await svc.setManualPrice(s, '8007049920131', ref);
     expect(await svc.quote(s, '8007049920131'), isA<QuoteManualMissing>());
     // Nessuna chiamata di rete per Aldi.
-    expect([...poliOnlineA.requests, ...poliSessionA.requests, ...coopA.requests],
-        isEmpty);
+    expect([
+      ...poliOnlineA.requests,
+      ...poliSessionA.requests,
+      ...coopA.requests,
+    ], isEmpty);
   });
 }

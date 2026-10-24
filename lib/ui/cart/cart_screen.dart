@@ -467,7 +467,7 @@ class _SummaryBarState extends ConsumerState<_SummaryBar> {
         Padding(
           padding: const EdgeInsets.only(top: 2),
           child: Text(
-            'Lidl/MD: prezzi Everli sui soli articoli abbinati, in negozio '
+            'Lidl/MD/Pam: prezzi Everli sui soli articoli abbinati, in negozio '
             'possono differire; consegna esclusa. Tocca una riga per gli '
             'equivalenti.',
             style: small?.copyWith(color: theme.colorScheme.outline),

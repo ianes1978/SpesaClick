@@ -309,7 +309,7 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
-                'Lidl/MD: prezzi Everli (data di lettura sul prodotto), in '
+                'Lidl/MD/Pam: prezzi Everli (data di lettura sul prodotto), in '
                 'negozio possono differire. Si mostrano solo i risultati che '
                 'contengono tutte le parole cercate.',
                 style: Theme.of(context).textTheme.bodySmall,

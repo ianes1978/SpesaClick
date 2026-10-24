@@ -160,7 +160,7 @@ class StoresScreen extends ConsumerWidget {
     PriceStore(chain: Chain.aldi) =>
       'Nessuna fonte online (non è su Everli): il prezzo lo inserisci tu '
           'dalla riga del carrello e viene ricordato',
-    PriceStore(chain: Chain.lidl || Chain.md) =>
+    PriceStore(chain: Chain.lidl || Chain.md || Chain.pam) =>
       'Prezzi Everli, in negozio possono differire. Niente EAN: si '
           'propongono prodotti equivalenti da confermare',
     PriceStore(chain: Chain.poli, isOnline: true) =>

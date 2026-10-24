@@ -19,14 +19,21 @@ class RouteAdapter implements HttpClientAdapter {
   final requests = <RequestOptions>[];
 
   @override
-  Future<ResponseBody> fetch(RequestOptions options,
-      Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
     requests.add(options);
     final q = routes[options.path]!;
     final (status, body) = q.length > 1 ? q.removeAt(0) : q.first;
-    return ResponseBody.fromString(body, status, headers: {
-      Headers.contentTypeHeader: ['application/json'],
-    });
+    return ResponseBody.fromString(
+      body,
+      status,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
   }
 
   @override
@@ -37,7 +44,8 @@ const _ok = '{"success":true}';
 const _noAddress = '{"message":"No address in session","code":"no_address"}';
 
 void main() {
-  final fixture = File('test/fixtures/everli_search_latte.json').readAsStringSync();
+  final fixture = File('test/fixtures/everli_search_latte.json')
+      .readAsStringSync();
   final json = jsonDecode(fixture) as Map<String, dynamic>;
   Map<String, dynamic> raw(int store, int i) =>
       (json['stores'][store]['products'] as List)[i] as Map<String, dynamic>;
@@ -83,10 +91,14 @@ void main() {
     });
 
     test('tiene i prodotti con tutti i termini, senza accenti e plurali', () {
-      expect(matchesAllTerms('latte intero', 'Latte Italiano Intero Uht'),
-          isTrue);
-      expect(matchesAllTerms('latte intero', 'Latte parzialmente scremato'),
-          isFalse);
+      expect(
+        matchesAllTerms('latte intero', 'Latte Italiano Intero Uht'),
+        isTrue,
+      );
+      expect(
+        matchesAllTerms('latte intero', 'Latte parzialmente scremato'),
+        isFalse,
+      );
       expect(matchesAllTerms('caffè', 'Caffe macinato'), isTrue);
       expect(matchesAllTerms('banane', 'Banana Chiquita'), isTrue);
     });
@@ -141,8 +153,12 @@ void main() {
       expect(r[9231], hasLength(2));
       expect(r[9750]!.single.chain, Chain.md);
       final search = a.requests.last;
-      expect(search.queryParameters,
-          {'keyword': 'latte', 'skip': 0, 'take': 50, 'store_ids': '9231,9750'});
+      expect(search.queryParameters, {
+        'keyword': 'latte',
+        'skip': 0,
+        'take': 50,
+        'store_ids': '9231,9750',
+      });
       final set = jsonDecode(a.requests.first.data as String) as Map;
       expect(set['skip_location_check'], isTrue);
       expect((set['address'] as Map)['postal_code'], '38122');
@@ -179,22 +195,53 @@ void main() {
             jsonEncode({
               'location': {},
               'stores': [
-                {'id': '9231', 'name': 'Lidl', 'address': 'Via Brennero 99-101',
-                  'type': 'SUPERMARKET', 'brand_details': {'name': 'Lidl', 'slug': 'lidl'}},
-                {'id': '9750', 'name': 'MD', 'address': 'Via Brennero 161',
-                  'type': 'SUPERMARKET', 'brand_details': {'name': 'MD', 'slug': 'md'}},
-                {'id': '3693', 'name': 'Pam', 'address': 'Via G.B. Trener 16',
-                  'type': 'SUPERMARKET', 'brand_details': {'name': 'Pam', 'slug': 'pam'}},
-              ]
-            })
-          )
+                {
+                  'id': '9231',
+                  'name': 'Lidl',
+                  'address': 'Via Brennero 99-101',
+                  'type': 'SUPERMARKET',
+                  'brand_details': {'name': 'Lidl', 'slug': 'lidl'},
+                },
+                {
+                  'id': '9750',
+                  'name': 'MD',
+                  'address': 'Via Brennero 161',
+                  'type': 'SUPERMARKET',
+                  'brand_details': {'name': 'MD', 'slug': 'md'},
+                },
+                {
+                  'id': '3693',
+                  'name': 'Pam',
+                  'address': 'Via G.B. Trener 16',
+                  'type': 'SUPERMARKET',
+                  'brand_details': {'name': 'Pam', 'slug': 'pam'},
+                },
+              ],
+            }),
+          ),
         ],
       });
       final api = EverliApi(minInterval: Duration.zero);
       api.dio.httpClientAdapter = a;
       final list = await api.storeList();
-      expect(list.map((s) => s.chain), [Chain.lidl, Chain.md, null]);
+      expect(list.map((s) => s.chain), [Chain.lidl, Chain.md, Chain.pam]);
       expect(list.first.id, 9231);
+    });
+
+    test('Pam riconosciuto anche dal nome del marchio', () {
+      final s = EverliStore.fromApi({
+        'id': '3693',
+        'name': 'Pam',
+        'address': 'Via G.B. Trener 16',
+        'brand_details': {'name': 'Pam', 'slug': 'pam-panorama'},
+      })!;
+      expect(s.chain, Chain.pam);
+      final conad = EverliStore.fromApi({
+        'id': '9837',
+        'name': 'Conad',
+        'brand_details': {'name': 'Conad', 'slug': 'conad'},
+      })!;
+      expect(conad.chain, isNull);
     });
   });
 
@@ -210,12 +257,13 @@ void main() {
       addTearDown(db.close);
       final repo = EverliRepository(api: api, db: db);
       const ref = Product(
-          productId: 1,
-          barcode: '8000000000000',
-          name: 'LATTE INTERO UHT',
-          packageDescr: '1 l',
-          price: 1.49,
-          weightUnit: 'l');
+        productId: 1,
+        barcode: '8000000000000',
+        name: 'LATTE INTERO UHT',
+        packageDescr: '1 l',
+        price: 1.49,
+        weightUnit: 'l',
+      );
       final eq = await repo.equivalents(9231, Chain.lidl, ref);
       expect(eq.map((e) => e.product.productId), [2112008]);
       await repo.equivalents(9231, Chain.lidl, ref);

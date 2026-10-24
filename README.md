@@ -23,7 +23,7 @@ subito il prezzo a **DupliClick** (Poli, prezzo del punto vendita scelto) o a
 | **Lista per negozio** | Ogni riga ha il negozio dove comprarla (📍). In alto filtri la lista per negozio: entrando in un negozio vedi solo cosa prendere lì. "Compra qui" nella scheda della riga la sposta in un altro negozio; dal menu "Assegna ogni articolo al negozio più conveniente" lo fa per tutte. |
 | **Aldi a mano** | Aggiungi "Aldi" in Negozi. Tocca una riga → Aldi → **Inserisci** il prezzo: l'app chiede se comprarla da Aldi e ricorda il prezzo per le prossime spese (tocca di nuovo per modificarlo o toglierlo). Nessuna ricerca nel catalogo per Aldi. |
 | **Spunta "preso"** | Casella su ogni riga: gli articoli presi vanno in fondo e la barra mostra "presi 3/7 · da prendere X €". "Togli tutte le spunte" dal menu. |
-| **Equivalenti Lidl/MD** | Tocca una riga del carrello: prezzi per EAN negli altri negozi e prodotti equivalenti Lidl/MD da Everli, con "È lo stesso prodotto" per abbinarli. |
+| **Equivalenti Lidl/MD/Pam** | Tocca una riga del carrello: prezzi per EAN negli altri negozi e prodotti equivalenti Lidl/MD/Pam da Everli, con "È lo stesso prodotto" per abbinarli. |
 | **Ricerca multi-negozio** | Il catalogo cerca in tutti i negozi selezionati e raggruppa per EAN; i filtri in alto mostrano un negozio alla volta. |
 | **Cambio negozio e confronto** | Selettore del punto vendita in alto e confronto IperPoli ↔ Gardolo (vedi avvertenze sotto). |
 | **Catalogo** | Ricerca istantanea (debounce di 300 ms) con paginazione infinita, filtri per categoria e la sezione "In evidenza" con prodotti trentini. Un tocco aggiunge il prodotto al carrello. |
@@ -75,16 +75,16 @@ personale, non per il Play Store.
 | Poli · altri punti vendita | Solo dalla cache (6 ore): "Aggiorna prezzi dei negozi Poli" nel riepilogo sposta il carrello DupliClick reale su ogni negozio, legge i prezzi e **ripristina** quello originale (con conferma). Nella ricerca testuale non sono interrogabili. |
 | Coop · listino online | Click&Coop, uguale per tutti i punti di ritiro |
 
-| Lidl / MD · negozio Everli | Everli (`spesa.everli.com`), sessione anonima con un indirizzo fisso di Trento. Prezzi Everli: in negozio possono differire, consegna esclusa |
+| Lidl / MD / Pam · negozio Everli | Everli (`spesa.everli.com`), sessione anonima con un indirizzo fisso di Trento. Prezzi Everli: in negozio possono differire, consegna esclusa |
 | Aldi · prezzi inseriti a mano | Nessuna fonte online (non è su Everli e non pubblica un listino): il prezzo lo scrivi tu, letto a scaffale o sullo scontrino, e l'app lo ricorda (badge "a mano · data") |
 
-## Lidl e MD tramite Everli
+## Lidl, MD e Pam tramite Everli
 
 Everli **non espone codici a barre**, quindi lo scanner non può trovare per
 EAN un prodotto Lidl o MD. L'app fa così:
 
 1. ricava nome e marca dall'EAN tramite Poli o Coop;
-2. cerca su Everli le prime parole significative del nome nei negozi Lidl/MD;
+2. cerca su Everli le prime parole significative del nome nei negozi Lidl/MD/Pam;
 3. calcola una somiglianza (parole in comune, marca, formato e unità
    compatibili) e propone i 3 migliori come **equivalenti**, mai come lo
    stesso articolo;
@@ -92,7 +92,7 @@ EAN un prodotto Lidl o MD. L'app fa così:
    **"È lo stesso prodotto"**: l'abbinamento (EAN → prodotto Everli) viene
    salvato e da lì in poi conta nei totali. Pressione lunga per toglierlo.
 
-Nel riepilogo il totale Lidl/MD è calcolato **solo sugli articoli abbinati**
+Nel riepilogo il totale Lidl/MD/Pam è calcolato **solo sugli articoli abbinati**
 e indica quanti mancano. La ricerca testuale funziona anche su Everli, ma
 mostra solo i risultati che contengono tutte le parole cercate (la ricerca
 di Everli è "fuzzy" e restituisce sempre qualcosa). Non esiste un listino

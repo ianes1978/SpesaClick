@@ -58,8 +58,18 @@ class EverliStore {
     );
   }
 
-  Chain? get chain =>
-      Chain.values.where((c) => c.everliSlug == brandSlug).firstOrNull;
+  /// Catena del negozio: per `brand_details.slug` e, se lo slug non è
+  /// quello atteso, per nome del marchio (es. "Pam" per il negozio Pam).
+  Chain? get chain {
+    final bySlug = Chain.values
+        .where((c) => c.everliSlug == brandSlug)
+        .firstOrNull;
+    if (bySlug != null) return bySlug;
+    final brand = (brandName ?? name).trim().toLowerCase();
+    return Chain.values
+        .where((c) => c.everliSlug != null && brand == c.everliSlug)
+        .firstOrNull;
+  }
 }
 
 /// Errore con il codice restituito da Everli (`no_address`, `no_store`…).

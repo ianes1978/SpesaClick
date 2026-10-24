@@ -88,7 +88,7 @@ class PriceService {
   ProductRepository _repo(PriceStore s) => switch (s.chain) {
     Chain.coop => coop,
     Chain.poli => s.isOnline ? poliOnline : poliSession,
-    Chain.lidl || Chain.md || Chain.aldi => throw ArgumentError(
+    Chain.lidl || Chain.md || Chain.pam || Chain.aldi => throw ArgumentError(
       '${s.chain.label} non ha un listino per EAN',
     ),
   };

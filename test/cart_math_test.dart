@@ -156,7 +156,8 @@ void main() {
   test('spunta "preso" salvata; carrelli vecchi senza il campo', () {
     final it = item(product()).copyWith(taken: true);
     final back = CartItem.fromJson(
-        Map<String, dynamic>.from(jsonDecode(jsonEncode(it.toJson())) as Map));
+      Map<String, dynamic>.from(jsonDecode(jsonEncode(it.toJson())) as Map),
+    );
     expect(back.taken, isTrue);
     final old = Map<String, dynamic>.from(it.toJson())..remove('taken');
     expect(CartItem.fromJson(old).taken, isFalse);

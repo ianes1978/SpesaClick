@@ -177,6 +177,6 @@ double similarity(Product ref, Product cand) {
 }
 
 /// Parole chiave per cercare equivalenti: i primi termini significativi del
-/// nome (la marca spesso non c'è, Lidl e MD vendono marche proprie).
+/// nome (la marca spesso non c'è, Lidl, MD e Pam vendono molte marche proprie).
 String equivalentKeyword(Product ref, {int maxTerms = 3}) =>
     significantTerms(ref.name).take(maxTerms).join(' ');

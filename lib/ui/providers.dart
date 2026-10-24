@@ -169,7 +169,7 @@ final availableStoresProvider = FutureProvider<List<PriceStore>>((ref) async {
   ];
 });
 
-/// Negozi Lidl e MD che Everli serve all'indirizzo di Trento.
+/// Negozi Lidl, MD e Pam che Everli serve all'indirizzo di Trento.
 /// Lista vuota se Everli non risponde (l'errore va in [everliErrorProvider]).
 final everliStoresProvider = FutureProvider<List<PriceStore>>((ref) async {
   try {
@@ -508,7 +508,7 @@ class StoreQuotesNotifier extends Notifier<Map<String, StoreQuote>> {
   }
 
   /// Sposta ogni riga nel negozio selezionato dove costa meno (fra quelli con
-  /// un prezzo: per Lidl/MD solo gli abbinamenti confermati).
+  /// un prezzo: per Everli solo gli abbinamenti confermati).
   int moveAllToCheapest() {
     var moved = 0;
     final stores = ref.read(selectedStoresProvider);

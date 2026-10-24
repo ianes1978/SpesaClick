@@ -26,5 +26,6 @@ const _$ChainEnumMap = {
   Chain.coop: 'coop',
   Chain.lidl: 'lidl',
   Chain.md: 'md',
+  Chain.pam: 'pam',
   Chain.aldi: 'aldi',
 };

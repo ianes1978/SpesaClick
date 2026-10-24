@@ -13,7 +13,7 @@ import '../widgets/product_image.dart';
 import 'manual_price_dialog.dart';
 
 /// Scheda di un articolo del carrello: prezzo per EAN nei negozi Poli/Coop
-/// ed equivalenti Lidl/MD (Everli) da confermare.
+/// ed equivalenti Lidl/MD/Pam (Everli) da confermare.
 Future<void> showCompareSheet(BuildContext context, CartItem item) =>
     showModalBottomSheet<void>(
       context: context,
