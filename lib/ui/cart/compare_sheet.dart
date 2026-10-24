@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/price_service.dart';
 import '../../domain/cart_item.dart';
 import '../../domain/cart_math.dart';
+import '../../domain/price_quote.dart';
 import '../../domain/price_store.dart';
 import '../../domain/product.dart';
 import '../providers.dart';
 import '../widgets/format.dart';
 import '../widgets/product_image.dart';
+import 'manual_price_dialog.dart';
 
 /// Scheda di un articolo del carrello: prezzo per EAN nei negozi Poli/Coop
 /// ed equivalenti Lidl/MD (Everli) da confermare.
@@ -73,8 +75,16 @@ class _CompareSheet extends ConsumerWidget {
               dense: true,
               leading: const Icon(Icons.shopping_cart),
               title: Text(s.shortLabel),
-              subtitle: const Text('Qui compri questo articolo'),
+              subtitle: Text(
+                s.chain.isManual
+                    ? 'Qui compri questo articolo · prezzo inserito a mano '
+                          'il ${shortDate(item.quote.readAt)}'
+                    : 'Qui compri questo articolo',
+              ),
               trailing: Text(eur(hereNet)),
+              onTap: s.chain.isManual
+                  ? () => editManualPrice(context, ref, s, item)
+                  : null,
             )
           else
             _StoreSection(
@@ -115,6 +125,7 @@ class _StoreSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final everli = store.chain.isEverli;
+    final manual = store.chain.isManual;
     final notifier = ref.read(storeQuotesProvider.notifier);
     switch (quote) {
       case null:
@@ -135,7 +146,10 @@ class _StoreSection extends ConsumerWidget {
           leading: Icon(everli ? Icons.link : Icons.check_circle_outline),
           title: Text(store.shortLabel),
           subtitle: Text(
-            everli
+            manual
+                ? 'Prezzo inserito a mano il ${shortDate(result.quote.readAt)}'
+                      '${_unit(result.product)} · tocca per modificarlo'
+                : everli
                 ? 'Abbinato: ${result.product.name}'
                       '${_unit(result.product)}\n'
                       'Prezzo Everli · ${shortDate(result.quote.readAt)}, in negozio '
@@ -152,6 +166,15 @@ class _StoreSection extends ConsumerWidget {
             ],
           ),
           onLongPress: everli ? () => notifier.removeMatch(store, item) : null,
+          onTap: manual
+              ? () => editManualPrice(
+                  context,
+                  ref,
+                  store,
+                  item,
+                  current: result.quote,
+                )
+              : null,
         );
         return Column(
           children: [
@@ -244,6 +267,20 @@ class _StoreSection extends ConsumerWidget {
               ),
           ],
         );
+      case QuoteManualMissing():
+        return ListTile(
+          dense: true,
+          leading: const Icon(Icons.edit_note),
+          title: Text(store.shortLabel),
+          subtitle: const Text(
+            'Nessun prezzo: inseriscilo per confrontarlo '
+            'e per comprarlo qui',
+          ),
+          trailing: FilledButton.tonal(
+            onPressed: () => editManualPrice(context, ref, store, item),
+            child: const Text('Inserisci'),
+          ),
+        );
       case QuoteNotFound():
         return ListTile(
           dense: true,
@@ -270,5 +307,58 @@ class _StoreSection extends ConsumerWidget {
           ),
         );
     }
+  }
+}
+
+/// Inserisce o modifica il prezzo a mano di [item] nel negozio [store].
+/// Se la riga non si compra ancora lì, chiede se spostarla.
+Future<void> editManualPrice(
+  BuildContext context,
+  WidgetRef ref,
+  PriceStore store,
+  CartItem item, {
+  PriceQuote? current,
+}) async {
+  final own = PriceStore.idOfQuote(item.quote) == store.id;
+  final cur = current ?? (own ? item.quote : null);
+  final r = await showManualPriceDialog(
+    context,
+    item,
+    store,
+    current: cur?.price,
+    currentPerKg: cur?.pricePerKg,
+  );
+  if (r == null || !context.mounted) return;
+  final notifier = ref.read(storeQuotesProvider.notifier);
+  await notifier.setManualPrice(
+    store,
+    item,
+    price: r.price,
+    pricePerKg: r.pricePerKg,
+  );
+  if (r.price == null || own || !context.mounted) return;
+  final move = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text('Compri questo articolo da ${store.shortLabel}?'),
+      content: Text('Prezzo salvato: ${eur(r.price!)}.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('No, solo confronto'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Sì, compra qui'),
+        ),
+      ],
+    ),
+  );
+  if (move ?? false) {
+    final fresh = ref
+        .read(cartProvider)
+        .where((i) => i.id == item.id)
+        .firstOrNull;
+    if (fresh != null) notifier.moveItem(fresh, store);
   }
 }

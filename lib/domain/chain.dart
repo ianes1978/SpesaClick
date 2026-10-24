@@ -14,23 +14,31 @@ enum Chain {
   lidl,
 
   /// MD tramite Everli.
-  md;
+  md,
+
+  /// Aldi: nessuna fonte online, prezzi inseriti a mano dall'utente.
+  aldi;
 
   String get label => switch (this) {
     Chain.poli => 'Poli',
     Chain.coop => 'Coop',
     Chain.lidl => 'Lidl',
     Chain.md => 'MD',
+    Chain.aldi => 'Aldi',
   };
 
   String get serviceName => switch (this) {
     Chain.poli => 'DupliClick',
     Chain.coop => 'Click&Coop',
     Chain.lidl || Chain.md => 'Everli',
+    Chain.aldi => 'prezzi a mano',
   };
 
   /// La catena si legge da Everli (niente EAN, solo ricerca per nome).
   bool get isEverli => this == Chain.lidl || this == Chain.md;
+
+  /// I prezzi li inserisce l'utente (niente API, niente ricerca).
+  bool get isManual => this == Chain.aldi;
 
   /// `brand_details.slug` di Everli.
   String? get everliSlug => switch (this) {

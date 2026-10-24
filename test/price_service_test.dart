@@ -14,6 +14,7 @@ import 'package:spesa_trento/data/product_repository.dart';
 import 'package:spesa_trento/domain/chain.dart';
 import 'package:spesa_trento/domain/price_quote.dart';
 import 'package:spesa_trento/domain/price_store.dart';
+import 'package:spesa_trento/domain/product.dart';
 
 class FixedAdapter implements HttpClientAdapter {
   FixedAdapter(this.body);
@@ -124,5 +125,29 @@ void main() {
     expect(iper.id, 'poli:1412');
     expect(iper.shortLabel, 'IperPoli');
     expect(PriceStore.poliOnline.shortLabel, 'Poli online');
+  });
+
+  test('Aldi: prezzo inserito a mano, ricordato e rimovibile', () async {
+    const s = PriceStore.aldiManual;
+    expect(svc.isLive(s), isTrue);
+    expect(svc.isSearchable(s), isFalse);
+    expect(await svc.quote(s, '8007049920131'), isA<QuoteManualMissing>());
+    const ref = Product(
+        productId: 213319,
+        barcode: '8007049920131',
+        name: 'MOUSSE 100% MELA E BANANA',
+        price: 1.25);
+    final saved = await svc.setManualPrice(s, '8007049920131', ref, price: 0.99);
+    expect((saved as QuoteFound).result.quote.price, 0.99);
+    final again = await svc.quote(s, '8007049920131') as QuoteFound;
+    expect(again.result.quote.source, PriceSource.manual);
+    expect(again.result.quote.chain, Chain.aldi);
+    expect(PriceStore.idOfQuote(again.result.quote), s.id);
+    expect(again.result.product.name, ref.name);
+    await svc.setManualPrice(s, '8007049920131', ref);
+    expect(await svc.quote(s, '8007049920131'), isA<QuoteManualMissing>());
+    // Nessuna chiamata di rete per Aldi.
+    expect([...poliOnlineA.requests, ...poliSessionA.requests, ...coopA.requests],
+        isEmpty);
   });
 }

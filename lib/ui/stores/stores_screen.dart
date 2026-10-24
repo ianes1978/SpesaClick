@@ -110,19 +110,6 @@ class StoresScreen extends ConsumerWidget {
                     ),
                   ),
               ],
-              ListTile(
-                dense: true,
-                title: Text('Aldi', style: theme.textTheme.labelLarge),
-              ),
-              const CheckboxListTile(
-                value: false,
-                onChanged: null,
-                title: Text('Aldi'),
-                subtitle: Text(
-                  'Non disponibile: Aldi non è su Everli e non pubblica un '
-                  'listino online.',
-                ),
-              ),
             ],
             loading: () => const [LinearProgressIndicator()],
             error: (e, _) => [
@@ -170,6 +157,9 @@ class StoresScreen extends ConsumerWidget {
   static String _hint(PriceStore s) => switch (s) {
     PriceStore(chain: Chain.coop) =>
       'Un unico listino per tutti i punti di ritiro',
+    PriceStore(chain: Chain.aldi) =>
+      'Nessuna fonte online (non è su Everli): il prezzo lo inserisci tu '
+          'dalla riga del carrello e viene ricordato',
     PriceStore(chain: Chain.lidl || Chain.md) =>
       'Prezzi Everli, in negozio possono differire. Niente EAN: si '
           'propongono prodotti equivalenti da confermare',

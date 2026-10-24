@@ -114,7 +114,8 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
         ..clear()
         ..addAll([
           for (final s in stores)
-            if (svc.isLive(s) && (browse == null || s.chain == Chain.coop))
+            if (svc.isSearchable(s) &&
+                (browse == null || s.chain == Chain.coop))
               _Source(s),
         ]);
       _loading = false;
@@ -257,7 +258,7 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
                 for (final s in selected)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: svc.isLive(s)
+                    child: svc.isSearchable(s)
                         ? ChoiceChip(
                             label: Text(s.shortLabel),
                             selected: _filter == s.id,
@@ -267,13 +268,18 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
                         : ActionChip(
                             avatar: const Icon(Icons.lock_clock, size: 16),
                             label: Text(s.shortLabel),
-                            onPressed: () => ScaffoldMessenger.of(context)
-                                .showSnackBar(
+                            onPressed: () =>
+                                ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(
-                                      '${svc.unavailableReason(s)}. '
-                                      'La ricerca testuale funziona solo sul '
-                                      'negozio attivo nel carrello DupliClick.',
+                                      s.chain.isManual
+                                          ? '${s.shortLabel}: prezzi inseriti a '
+                                                'mano, nessuna ricerca. Inserisci '
+                                                'il prezzo dalla riga del carrello.'
+                                          : '${svc.unavailableReason(s)}. '
+                                                'La ricerca testuale funziona solo '
+                                                'sul negozio attivo nel carrello '
+                                                'DupliClick.',
                                     ),
                                   ),
                                 ),

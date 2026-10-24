@@ -276,6 +276,8 @@ class _OtherPrice extends StatelessWidget {
           '${store.shortLabel}: simile da ${eur(best)} ›',
           style: muted?.copyWith(fontStyle: FontStyle.italic),
         );
+      case QuoteManualMissing():
+        return Text('${store.shortLabel}: inserisci prezzo ›', style: muted);
       case null:
         return Text('${store.shortLabel}: …', style: muted);
       default:

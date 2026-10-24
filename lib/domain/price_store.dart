@@ -34,7 +34,9 @@ abstract class PriceStore with _$PriceStore {
   String get id => idFor(chain, storeId);
 
   /// Etichetta corta per chip e righe di confronto.
-  String get shortLabel => isOnline
+  String get shortLabel => chain.isManual
+      ? chain.label
+      : isOnline
       ? '${chain.label} online'
       : name.replaceFirst(RegExp(r'^Poli · '), '');
   bool get isOnline => storeId == null;
@@ -43,6 +45,11 @@ abstract class PriceStore with _$PriceStore {
     chain: Chain.poli,
     name: 'Poli · listino online DupliClick',
   );
+  static const aldiManual = PriceStore(
+    chain: Chain.aldi,
+    name: 'Aldi · prezzi inseriti a mano',
+  );
+
   static const coopOnline = PriceStore(
     chain: Chain.coop,
     name: 'Coop · listino online Click&Coop',

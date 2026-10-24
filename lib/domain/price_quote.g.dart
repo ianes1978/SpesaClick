@@ -32,6 +32,7 @@ const _$PriceSourceEnumMap = {
   PriceSource.online: 'online',
   PriceSource.label: 'label',
   PriceSource.offline: 'offline',
+  PriceSource.manual: 'manual',
 };
 
 const _$ChainEnumMap = {
@@ -39,4 +40,5 @@ const _$ChainEnumMap = {
   Chain.coop: 'coop',
   Chain.lidl: 'lidl',
   Chain.md: 'md',
+  Chain.aldi: 'aldi',
 };

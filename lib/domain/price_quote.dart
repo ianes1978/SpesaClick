@@ -18,6 +18,9 @@ enum PriceSource {
 
   /// Listino scaricato per l'uso offline.
   offline,
+
+  /// Inserito a mano dall'utente (es. Aldi).
+  manual,
 }
 
 extension PriceSourceLabel on PriceSource {
@@ -26,6 +29,7 @@ extension PriceSourceLabel on PriceSource {
     PriceSource.online => 'online',
     PriceSource.label => 'etichetta',
     PriceSource.offline => 'offline',
+    PriceSource.manual => 'a mano',
   };
 }
 

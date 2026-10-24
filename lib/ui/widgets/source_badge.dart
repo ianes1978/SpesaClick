@@ -17,11 +17,15 @@ class SourceBadge extends StatelessWidget {
       PriceSource.online => (cs.secondaryContainer, cs.onSecondaryContainer),
       PriceSource.label => (cs.tertiaryContainer, cs.onTertiaryContainer),
       PriceSource.offline => (cs.surfaceContainerHighest, cs.onSurfaceVariant),
+      PriceSource.manual => (cs.surfaceContainerHighest, cs.onSurfaceVariant),
     };
     var text = quote.source == PriceSource.offline
         ? 'offline · ${shortDate(quote.readAt)}'
         : quote.source.badge;
     if (quote.chain == Chain.coop) text = 'Coop · $text';
+    if (quote.source == PriceSource.manual) {
+      text = 'a mano · ${shortDate(quote.readAt)}';
+    }
     if (quote.chain.isEverli) {
       text = '${quote.chain.label} · Everli ${shortDate(quote.readAt)}';
     }

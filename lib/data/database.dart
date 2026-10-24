@@ -138,6 +138,15 @@ class AppDatabase extends _$AppDatabase {
     return CachedPrice(_decode(row.productJson), row.readAt);
   }
 
+  Future<void> deletePrice(Chain chain, String storeKey, String barcode) =>
+      (delete(priceCache)..where(
+            (t) =>
+                t.chain.equals(chain.name) &
+                t.storeKey.equals(storeKey) &
+                t.barcode.equals(barcode),
+          ))
+          .go();
+
   Future<void> putPrice(String storeKey, Product p, DateTime readAt) =>
       into(priceCache).insertOnConflictUpdate(
         PriceCacheCompanion.insert(

@@ -435,7 +435,7 @@ class _SummaryBarState extends ConsumerState<_SummaryBar> {
                 child: Text(
                   t.unavailable ??
                       (t.matched == 0
-                          ? '${t.store.shortLabel}: nessun articolo abbinato'
+                          ? '${t.store.shortLabel}: ${t.store.chain.isManual ? 'nessun prezzo inserito' : 'nessun articolo abbinato'}'
                           : '${t.store.shortLabel}'
                                 '${t.complete ? '' : ' (${t.matched}/${t.count} articoli, mancano ${t.missing})'}'),
                   style: small,

@@ -21,6 +21,7 @@ subito il prezzo a **DupliClick** (Poli, prezzo del punto vendita scelto) o a
 | **Negozi nel confronto** | In **Negozi** (in alto nel carrello) scegli una lista di negozi fra le catene disponibili: listino online DupliClick, i punti vendita Poli di Trento, listino online Click&Coop. Una catena senza negozi selezionati resta fuori dal confronto. L'ordine conta: il primo è quello proposto per primo. |
 | **Scansione multi-negozio** | Il codice viene cercato in tutti i negozi selezionati; se il prodotto c'è in più negozi l'app chiede quale prezzo usare (si può disattivare: allora vale il primo della lista). Ogni riga mostra il prezzo negli altri negozi e il riepilogo il totale in ognuno, con il più conveniente evidenziato. |
 | **Lista per negozio** | Ogni riga ha il negozio dove comprarla (📍). In alto filtri la lista per negozio: entrando in un negozio vedi solo cosa prendere lì. "Compra qui" nella scheda della riga la sposta in un altro negozio; dal menu "Assegna ogni articolo al negozio più conveniente" lo fa per tutte. |
+| **Aldi a mano** | Aggiungi "Aldi" in Negozi. Tocca una riga → Aldi → **Inserisci** il prezzo: l'app chiede se comprarla da Aldi e ricorda il prezzo per le prossime spese (tocca di nuovo per modificarlo o toglierlo). Nessuna ricerca nel catalogo per Aldi. |
 | **Spunta "preso"** | Casella su ogni riga: gli articoli presi vanno in fondo e la barra mostra "presi 3/7 · da prendere X €". "Togli tutte le spunte" dal menu. |
 | **Equivalenti Lidl/MD** | Tocca una riga del carrello: prezzi per EAN negli altri negozi e prodotti equivalenti Lidl/MD da Everli, con "È lo stesso prodotto" per abbinarli. |
 | **Ricerca multi-negozio** | Il catalogo cerca in tutti i negozi selezionati e raggruppa per EAN; i filtri in alto mostrano un negozio alla volta. |
@@ -75,7 +76,7 @@ personale, non per il Play Store.
 | Coop · listino online | Click&Coop, uguale per tutti i punti di ritiro |
 
 | Lidl / MD · negozio Everli | Everli (`spesa.everli.com`), sessione anonima con un indirizzo fisso di Trento. Prezzi Everli: in negozio possono differire, consegna esclusa |
-| Aldi | **Non disponibile**: non è su Everli e non pubblica un listino online |
+| Aldi · prezzi inseriti a mano | Nessuna fonte online (non è su Everli e non pubblica un listino): il prezzo lo scrivi tu, letto a scaffale o sullo scontrino, e l'app lo ricorda (badge "a mano · data") |
 
 ## Lidl e MD tramite Everli
 

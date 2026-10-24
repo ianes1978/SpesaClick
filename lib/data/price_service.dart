@@ -38,6 +38,11 @@ class QuoteSimilar extends StoreQuote {
   final List<ScoredProduct> candidates;
 }
 
+/// Negozio a prezzi manuali (Aldi) senza un prezzo per questo articolo.
+class QuoteManualMissing extends StoreQuote {
+  const QuoteManualMissing();
+}
+
 class QuoteFailed extends StoreQuote {
   const QuoteFailed(this.message);
   final String message;
@@ -83,7 +88,7 @@ class PriceService {
   ProductRepository _repo(PriceStore s) => switch (s.chain) {
     Chain.coop => coop,
     Chain.poli => s.isOnline ? poliOnline : poliSession,
-    Chain.lidl || Chain.md => throw ArgumentError(
+    Chain.lidl || Chain.md || Chain.aldi => throw ArgumentError(
       '${s.chain.label} non ha un listino per EAN',
     ),
   };
@@ -97,6 +102,7 @@ class PriceService {
   }) async {
     try {
       if (s.chain.isEverli) return await _everliQuote(s, code, reference);
+      if (s.chain.isManual) return await _manualQuote(s, code);
       if (!isDigits(code)) return const QuoteNotFound();
       if (!isLive(s)) {
         final q = await poliSession.cachedQuote(s.storeId!, code);
@@ -140,6 +146,45 @@ class PriceService {
     final c = await everli.equivalents(storeId, s.chain, reference);
     return c.isEmpty ? const QuoteNotFound() : QuoteSimilar(c);
   }
+
+  static const manualKey = 'manual';
+
+  Future<StoreQuote> _manualQuote(PriceStore s, String code) async {
+    final c = await poliSession.db.cachedPrice(s.chain, manualKey, code);
+    if (c == null) return const QuoteManualMissing();
+    return QuoteFound(
+      LookupResult(c.product, c.product.quote(PriceSource.manual, c.readAt)),
+    );
+  }
+
+  /// Salva (o toglie, con [price] null) il prezzo inserito a mano per
+  /// [code] nel negozio manuale [s]. Il prezzo resta finché non lo cambi.
+  Future<StoreQuote> setManualPrice(
+    PriceStore s,
+    String code,
+    Product product, {
+    double? price,
+    double? pricePerKg,
+  }) async {
+    final db = poliSession.db;
+    if (price == null) {
+      await db.deletePrice(s.chain, manualKey, code);
+      return const QuoteManualMissing();
+    }
+    final p = product.copyWith(
+      chain: s.chain,
+      barcode: code,
+      price: price,
+      listPrice: null,
+      pricePerKg: pricePerKg,
+    );
+    final now = DateTime.now();
+    await db.putPrice(manualKey, p, now);
+    return QuoteFound(LookupResult(p, p.quote(PriceSource.manual, now)));
+  }
+
+  /// La ricerca testuale si può fare in questo negozio?
+  bool isSearchable(PriceStore s) => isLive(s) && !s.chain.isManual;
 
   /// Conferma (o toglie, con null) l'abbinamento di [code] a un prodotto
   /// Everli del negozio [s].

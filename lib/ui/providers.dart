@@ -165,6 +165,7 @@ final availableStoresProvider = FutureProvider<List<PriceStore>>((ref) async {
       ),
     PriceStore.coopOnline,
     ...everli,
+    PriceStore.aldiManual,
   ];
 });
 
@@ -533,6 +534,29 @@ class StoreQuotesNotifier extends Notifier<Map<String, StoreQuote>> {
       }
     }
     return moved;
+  }
+
+  /// Prezzo inserito a mano (Aldi). Con [price] null lo toglie. Se la riga
+  /// si compra già in quel negozio, ne aggiorna anche il prezzo.
+  Future<void> setManualPrice(
+    PriceStore s,
+    CartItem item, {
+    double? price,
+    double? pricePerKg,
+  }) async {
+    final q = await ref
+        .read(priceServiceProvider)
+        .setManualPrice(
+          s,
+          item.product.barcode,
+          item.product,
+          price: price,
+          pricePerKg: pricePerKg,
+        );
+    state = {...state, storeQuoteKey(s.id, item.id): q};
+    if (q is QuoteFound && PriceStore.idOfQuote(item.quote) == s.id) {
+      ref.read(cartProvider.notifier).moveTo(item.id, q.result.quote);
+    }
   }
 
   /// L'utente conferma che [p] (Everli) è lo stesso prodotto della riga.
