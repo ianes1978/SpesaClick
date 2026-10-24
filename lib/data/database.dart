@@ -56,8 +56,8 @@ class EverliCache extends Table {
   Set<Column> get primaryKey => {key};
 }
 
-/// Abbinamenti confermati dall'utente: EAN (o codice) → prodotto Everli di
-/// un negozio.
+/// Abbinamenti per negozio della versione 3 (sostituiti da
+/// [EverliIdMatches]); la tabella resta solo per la migrazione.
 class EverliMatches extends Table {
   TextColumn get code => text()();
   IntColumn get storeId => integer()();
@@ -66,6 +66,17 @@ class EverliMatches extends Table {
 
   @override
   Set<Column> get primaryKey => {code, storeId};
+}
+
+/// Abbinamenti confermati dall'utente: EAN (o codice) → `id` del catalogo
+/// Everli, che è lo stesso in tutti i negozi. Uno per codice.
+class EverliIdMatches extends Table {
+  TextColumn get code => text()();
+  IntColumn get productId => integer()();
+  DateTimeColumn get confirmedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {code};
 }
 
 class KeyValues extends Table {
@@ -90,6 +101,7 @@ class CachedPrice {
     KeyValues,
     EverliCache,
     EverliMatches,
+    EverliIdMatches,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -97,7 +109,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'spesa_trento'));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -112,6 +124,17 @@ class AppDatabase extends _$AppDatabase {
       if (from < 3) {
         await m.createTable(everliCache);
         await m.createTable(everliMatches);
+      }
+      if (from < 4) {
+        await m.createTable(everliIdMatches);
+        if (from == 3) {
+          // L'id Everli è unico fra i negozi: basta un abbinamento per codice.
+          await customStatement(
+            'INSERT OR IGNORE INTO everli_id_matches '
+            '(code, product_id, confirmed_at) '
+            'SELECT code, product_id, confirmed_at FROM everli_matches',
+          );
+        }
       }
     },
   );
@@ -286,22 +309,17 @@ class AppDatabase extends _$AppDatabase {
         EverliCacheCompanion.insert(key: key, json: json, readAt: at),
       );
 
-  Future<int?> everliMatch(String code, int storeId) async =>
-      (await (select(everliMatches)
-                ..where((t) => t.code.equals(code) & t.storeId.equals(storeId)))
-              .getSingleOrNull())
-          ?.productId;
+  Future<int?> everliMatch(String code) async => (await (select(
+    everliIdMatches,
+  )..where((t) => t.code.equals(code))).getSingleOrNull())?.productId;
 
-  Future<void> setEverliMatch(String code, int storeId, int? productId) async {
+  Future<void> setEverliMatch(String code, int? productId) async {
     if (productId == null) {
-      await (delete(
-        everliMatches,
-      )..where((t) => t.code.equals(code) & t.storeId.equals(storeId))).go();
+      await (delete(everliIdMatches)..where((t) => t.code.equals(code))).go();
     } else {
-      await into(everliMatches).insertOnConflictUpdate(
-        EverliMatchesCompanion.insert(
+      await into(everliIdMatches).insertOnConflictUpdate(
+        EverliIdMatchesCompanion.insert(
           code: code,
-          storeId: storeId,
           productId: productId,
           confirmedAt: DateTime.now(),
         ),

@@ -7,7 +7,12 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spesa_trento/data/database.dart';
 import 'package:spesa_trento/data/everli_api.dart';
+import 'package:spesa_trento/data/ebsn_api.dart';
+import 'package:spesa_trento/data/ebsn_config.dart';
 import 'package:spesa_trento/data/everli_repository.dart';
+import 'package:spesa_trento/data/price_service.dart';
+import 'package:spesa_trento/data/product_repository.dart';
+import 'package:spesa_trento/domain/price_store.dart';
 import 'package:spesa_trento/domain/chain.dart';
 import 'package:spesa_trento/domain/product.dart';
 import 'package:spesa_trento/domain/similarity.dart';
@@ -269,11 +274,101 @@ void main() {
       await repo.equivalents(9231, Chain.lidl, ref);
       expect(a.requests.where((r) => r.path == '/search'), hasLength(1));
 
-      await repo.setMatch('8000000000000', 9231, 2112008);
-      expect(await repo.match('8000000000000', 9231), 2112008);
+      await repo.setMatch('8000000000000', 2112008);
+      expect(await repo.match('8000000000000'), 2112008);
       final p = await repo.product(9231, Chain.lidl, 2112008);
       expect(p?.product.price, 1.39); // dalla cache della ricerca
       expect(a.requests.where((r) => r.path.startsWith('/product')), isEmpty);
     });
+  });
+
+  group('id Everli unico fra i negozi', () {
+    final nutella = {
+      'id': '1305998',
+      'name': 'Nutella',
+      'brand': 'Ferrero',
+      'short_description': 'Vasetto 220g',
+      'type': 'kilogram',
+      'price': 299,
+      'discounted_price': 299,
+      'discount': 0,
+      'price_per_type': 1359,
+      'discounted_price_per_type': 1359,
+    };
+
+    test('un solo abbinamento EAN → id vale per tutti i negozi', () async {
+      final a = RouteAdapter({
+        '/user/address/set': [(200, _ok)],
+        '/product/1305998': [(200, jsonEncode(nutella))],
+      });
+      final api = EverliApi(minInterval: Duration.zero);
+      api.dio.httpClientAdapter = a;
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      ProductRepository dummy() => ProductRepository(
+        api: EbsnApi(EbsnConfig.poli),
+        db: db,
+        currentStoreId: () => null,
+      );
+      final svc = PriceService(
+        poliOnline: dummy(),
+        poliSession: dummy(),
+        coop: dummy(),
+        everli: EverliRepository(api: api, db: db),
+        cartStoreId: () => null,
+      );
+      const pam = PriceStore(chain: Chain.pam, storeId: 3693, name: 'Pam');
+      const md = PriceStore(chain: Chain.md, storeId: 9750, name: 'MD');
+
+      await svc.setEverliMatch(
+        '8000500310427',
+        everliProduct(nutella, Chain.pam),
+      );
+      final atPam = await svc.quote(pam, '8000500310427') as QuoteFound;
+      final atMd = await svc.quote(md, '8000500310427') as QuoteFound;
+      expect(atPam.result.quote.storeId, 3693);
+      expect(atMd.result.quote.storeId, 9750);
+      expect(atMd.result.quote.chain, Chain.md);
+      expect(atMd.result.quote.price, 2.99);
+      final details = a.requests.where((r) => r.path == '/product/1305998');
+      expect(details.map((r) => r.queryParameters['storeId']), [3693, 9750]);
+
+      // Una riga presa da Everli si confronta per id, senza abbinamento.
+      final byId = await svc.quote(md, 'everli:1305998') as QuoteFound;
+      expect(byId.result.product.productId, 1305998);
+    });
+
+    test(
+      'id non venduto in un negozio: niente prezzo, nessun errore',
+      () async {
+        final a = RouteAdapter({
+          '/user/address/set': [(200, _ok)],
+          '/product/1305998': [
+            (400, '{"message":"Product not found","code":"not_found"}'),
+          ],
+        });
+        final api = EverliApi(minInterval: Duration.zero);
+        api.dio.httpClientAdapter = a;
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        ProductRepository dummy() => ProductRepository(
+          api: EbsnApi(EbsnConfig.poli),
+          db: db,
+          currentStoreId: () => null,
+        );
+        final svc = PriceService(
+          poliOnline: dummy(),
+          poliSession: dummy(),
+          coop: dummy(),
+          everli: EverliRepository(api: api, db: db),
+          cartStoreId: () => null,
+        );
+        const lidl = PriceStore(chain: Chain.lidl, storeId: 9231, name: 'Lidl');
+        expect(
+          await svc.quote(lidl, 'everli:1305998'),
+          isA<QuoteUnavailable>(),
+        );
+      },
+    );
   });
 }

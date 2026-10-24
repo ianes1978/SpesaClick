@@ -7,6 +7,7 @@ import '../domain/price_store.dart';
 import '../domain/product.dart';
 import 'api_exceptions.dart';
 import 'ebsn_api.dart';
+import 'everli_api.dart';
 import 'everli_repository.dart';
 import 'product_repository.dart';
 
@@ -126,9 +127,17 @@ class PriceService {
     Product? reference,
   ) async {
     final storeId = s.storeId!;
-    final matched = await everli.match(code, storeId);
-    if (matched != null) {
-      final r = await everli.product(storeId, s.chain, matched);
+    // L'id del catalogo Everli è lo stesso in tutti i negozi: una riga presa
+    // da Everli, o un EAN già abbinato, si cerca per id in ogni negozio.
+    final id = EverliRepository.idFromCode(code) ?? await everli.match(code);
+    if (id != null) {
+      ({Product product, DateTime readAt})? r;
+      try {
+        r = await everli.product(storeId, s.chain, id);
+      } on EverliException catch (e) {
+        // Il prodotto può non essere venduto in questo negozio.
+        debugPrint('Everli ${s.shortLabel}: id $id non disponibile ($e)');
+      }
       if (r != null) {
         return QuoteFound(
           LookupResult(
@@ -187,9 +196,9 @@ class PriceService {
   bool isSearchable(PriceStore s) => isLive(s) && !s.chain.isManual;
 
   /// Conferma (o toglie, con null) l'abbinamento di [code] a un prodotto
-  /// Everli del negozio [s].
-  Future<void> setEverliMatch(PriceStore s, String code, Product? p) =>
-      everli.setMatch(code, s.storeId!, p?.productId);
+  /// Everli. Vale per tutti i negozi Everli (stesso `id`).
+  Future<void> setEverliMatch(String code, Product? p) =>
+      everli.setMatch(code, p?.productId);
 
   /// Ricerca testuale in un negozio "in diretta".
   Future<({ProductPage page, bool offline})> search(

@@ -157,8 +157,13 @@ class EverliRepository {
     return scored.take(3).toList();
   }
 
-  Future<int?> match(String code, int storeId) => db.everliMatch(code, storeId);
+  /// `id` Everli abbinato a un codice (valido in tutti i negozi Everli).
+  Future<int?> match(String code) => db.everliMatch(code);
 
-  Future<void> setMatch(String code, int storeId, int? productId) =>
-      db.setEverliMatch(code, storeId, productId);
+  Future<void> setMatch(String code, int? productId) =>
+      db.setEverliMatch(code, productId);
+
+  /// `id` Everli contenuto in un codice `everli:<id>` (righe prese da Everli).
+  static int? idFromCode(String code) =>
+      code.startsWith('everli:') ? int.tryParse(code.substring(7)) : null;
 }

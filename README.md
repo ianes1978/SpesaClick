@@ -89,8 +89,14 @@ EAN un prodotto Lidl o MD. L'app fa così:
    compatibili) e propone i 3 migliori come **equivalenti**, mai come lo
    stesso articolo;
 4. tocca una riga del carrello per vedere gli equivalenti e premi
-   **"È lo stesso prodotto"**: l'abbinamento (EAN → prodotto Everli) viene
-   salvato e da lì in poi conta nei totali. Pressione lunga per toglierlo.
+   **"È lo stesso prodotto"**: l'abbinamento EAN → `id` Everli viene salvato
+   **una sola volta** e vale per tutti i negozi Everli, perché l'`id` del
+   catalogo Everli è lo stesso in ogni negozio (es. Nutella 220 g = 1305998 da
+   Conad, Eurospar, Pam). Da lì in poi conta nei totali; pressione lunga per
+   toglierlo.
+5. Le righe prese direttamente da un negozio Everli si confrontano con gli
+   altri negozi Everli per `id` esatto, senza somiglianza (`ref_id`, specifico
+   del negozio, non serve).
 
 Nel riepilogo il totale Lidl/MD/Pam è calcolato **solo sugli articoli abbinati**
 e indica quanti mancano. La ricerca testuale funziona anche su Everli, ma

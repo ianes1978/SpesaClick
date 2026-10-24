@@ -204,8 +204,8 @@ class _StoreSection extends ConsumerWidget {
               leading: const Icon(Icons.compare_arrows),
               title: Text('Equivalenti ${store.shortLabel}'),
               subtitle: const Text(
-                'Prodotti simili, non lo stesso articolo. '
-                'Conferma se è lo stesso per usarlo nel confronto.',
+                'Prodotti simili, non lo stesso articolo. Se confermi, '
+                'l\'abbinamento vale per tutti i negozi Everli.',
               ),
             ),
             for (final c in candidates)

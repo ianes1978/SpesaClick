@@ -560,12 +560,15 @@ class StoreQuotesNotifier extends Notifier<Map<String, StoreQuote>> {
   }
 
   /// L'utente conferma che [p] (Everli) è lo stesso prodotto della riga.
+  /// L'abbinamento vale per tutti i negozi Everli: gli altri si rileggono
+  /// per id.
   Future<void> confirmMatch(PriceStore s, CartItem item, Product p) async {
     await ref
         .read(priceServiceProvider)
-        .setEverliMatch(s, item.product.barcode, p);
+        .setEverliMatch(item.product.barcode, p);
     state = {
-      ...state,
+      for (final e in state.entries)
+        if (!_isEverliKeyOf(e.key, item)) e.key: e.value,
       storeQuoteKey(s.id, item.id): QuoteFound(
         LookupResult(
           p,
@@ -573,14 +576,22 @@ class StoreQuotesNotifier extends Notifier<Map<String, StoreQuote>> {
         ),
       ),
     };
+    _fill();
   }
+
+  bool _isEverliKeyOf(String key, CartItem item) =>
+      key.endsWith('|${item.id}') &&
+      Chain.values.any((c) => c.isEverli && key.startsWith('${c.name}:'));
 
   /// Toglie l'abbinamento e ripropone i prodotti simili.
   Future<void> removeMatch(PriceStore s, CartItem item) async {
     await ref
         .read(priceServiceProvider)
-        .setEverliMatch(s, item.product.barcode, null);
-    state = {...state}..remove(storeQuoteKey(s.id, item.id));
+        .setEverliMatch(item.product.barcode, null);
+    state = {
+      for (final e in state.entries)
+        if (!_isEverliKeyOf(e.key, item)) e.key: e.value,
+    };
     _fill();
   }
 

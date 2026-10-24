@@ -1936,6 +1936,278 @@ class EverliMatchesCompanion extends UpdateCompanion<EverliMatche> {
   }
 }
 
+class $EverliIdMatchesTable extends EverliIdMatches
+    with TableInfo<$EverliIdMatchesTable, EverliIdMatche> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $EverliIdMatchesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _codeMeta = const VerificationMeta('code');
+  @override
+  late final GeneratedColumn<String> code = GeneratedColumn<String>(
+    'code',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _productIdMeta = const VerificationMeta(
+    'productId',
+  );
+  @override
+  late final GeneratedColumn<int> productId = GeneratedColumn<int>(
+    'product_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _confirmedAtMeta = const VerificationMeta(
+    'confirmedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> confirmedAt = GeneratedColumn<DateTime>(
+    'confirmed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [code, productId, confirmedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'everli_id_matches';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<EverliIdMatche> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('code')) {
+      context.handle(
+        _codeMeta,
+        code.isAcceptableOrUnknown(data['code']!, _codeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_codeMeta);
+    }
+    if (data.containsKey('product_id')) {
+      context.handle(
+        _productIdMeta,
+        productId.isAcceptableOrUnknown(data['product_id']!, _productIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_productIdMeta);
+    }
+    if (data.containsKey('confirmed_at')) {
+      context.handle(
+        _confirmedAtMeta,
+        confirmedAt.isAcceptableOrUnknown(
+          data['confirmed_at']!,
+          _confirmedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_confirmedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {code};
+  @override
+  EverliIdMatche map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return EverliIdMatche(
+      code: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}code'],
+      )!,
+      productId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}product_id'],
+      )!,
+      confirmedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}confirmed_at'],
+      )!,
+    );
+  }
+
+  @override
+  $EverliIdMatchesTable createAlias(String alias) {
+    return $EverliIdMatchesTable(attachedDatabase, alias);
+  }
+}
+
+class EverliIdMatche extends DataClass implements Insertable<EverliIdMatche> {
+  final String code;
+  final int productId;
+  final DateTime confirmedAt;
+  const EverliIdMatche({
+    required this.code,
+    required this.productId,
+    required this.confirmedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['code'] = Variable<String>(code);
+    map['product_id'] = Variable<int>(productId);
+    map['confirmed_at'] = Variable<DateTime>(confirmedAt);
+    return map;
+  }
+
+  EverliIdMatchesCompanion toCompanion(bool nullToAbsent) {
+    return EverliIdMatchesCompanion(
+      code: Value(code),
+      productId: Value(productId),
+      confirmedAt: Value(confirmedAt),
+    );
+  }
+
+  factory EverliIdMatche.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return EverliIdMatche(
+      code: serializer.fromJson<String>(json['code']),
+      productId: serializer.fromJson<int>(json['productId']),
+      confirmedAt: serializer.fromJson<DateTime>(json['confirmedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'code': serializer.toJson<String>(code),
+      'productId': serializer.toJson<int>(productId),
+      'confirmedAt': serializer.toJson<DateTime>(confirmedAt),
+    };
+  }
+
+  EverliIdMatche copyWith({
+    String? code,
+    int? productId,
+    DateTime? confirmedAt,
+  }) => EverliIdMatche(
+    code: code ?? this.code,
+    productId: productId ?? this.productId,
+    confirmedAt: confirmedAt ?? this.confirmedAt,
+  );
+  EverliIdMatche copyWithCompanion(EverliIdMatchesCompanion data) {
+    return EverliIdMatche(
+      code: data.code.present ? data.code.value : this.code,
+      productId: data.productId.present ? data.productId.value : this.productId,
+      confirmedAt: data.confirmedAt.present
+          ? data.confirmedAt.value
+          : this.confirmedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('EverliIdMatche(')
+          ..write('code: $code, ')
+          ..write('productId: $productId, ')
+          ..write('confirmedAt: $confirmedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(code, productId, confirmedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is EverliIdMatche &&
+          other.code == this.code &&
+          other.productId == this.productId &&
+          other.confirmedAt == this.confirmedAt);
+}
+
+class EverliIdMatchesCompanion extends UpdateCompanion<EverliIdMatche> {
+  final Value<String> code;
+  final Value<int> productId;
+  final Value<DateTime> confirmedAt;
+  final Value<int> rowid;
+  const EverliIdMatchesCompanion({
+    this.code = const Value.absent(),
+    this.productId = const Value.absent(),
+    this.confirmedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  EverliIdMatchesCompanion.insert({
+    required String code,
+    required int productId,
+    required DateTime confirmedAt,
+    this.rowid = const Value.absent(),
+  }) : code = Value(code),
+       productId = Value(productId),
+       confirmedAt = Value(confirmedAt);
+  static Insertable<EverliIdMatche> custom({
+    Expression<String>? code,
+    Expression<int>? productId,
+    Expression<DateTime>? confirmedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (code != null) 'code': code,
+      if (productId != null) 'product_id': productId,
+      if (confirmedAt != null) 'confirmed_at': confirmedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  EverliIdMatchesCompanion copyWith({
+    Value<String>? code,
+    Value<int>? productId,
+    Value<DateTime>? confirmedAt,
+    Value<int>? rowid,
+  }) {
+    return EverliIdMatchesCompanion(
+      code: code ?? this.code,
+      productId: productId ?? this.productId,
+      confirmedAt: confirmedAt ?? this.confirmedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (code.present) {
+      map['code'] = Variable<String>(code.value);
+    }
+    if (productId.present) {
+      map['product_id'] = Variable<int>(productId.value);
+    }
+    if (confirmedAt.present) {
+      map['confirmed_at'] = Variable<DateTime>(confirmedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('EverliIdMatchesCompanion(')
+          ..write('code: $code, ')
+          ..write('productId: $productId, ')
+          ..write('confirmedAt: $confirmedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1945,6 +2217,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $KeyValuesTable keyValues = $KeyValuesTable(this);
   late final $EverliCacheTable everliCache = $EverliCacheTable(this);
   late final $EverliMatchesTable everliMatches = $EverliMatchesTable(this);
+  late final $EverliIdMatchesTable everliIdMatches = $EverliIdMatchesTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1956,6 +2231,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     keyValues,
     everliCache,
     everliMatches,
+    everliIdMatches,
   ];
 }
 
@@ -3093,6 +3369,185 @@ typedef $$EverliMatchesTableProcessedTableManager =
       EverliMatche,
       PrefetchHooks Function()
     >;
+typedef $$EverliIdMatchesTableCreateCompanionBuilder =
+    EverliIdMatchesCompanion Function({
+      required String code,
+      required int productId,
+      required DateTime confirmedAt,
+      Value<int> rowid,
+    });
+typedef $$EverliIdMatchesTableUpdateCompanionBuilder =
+    EverliIdMatchesCompanion Function({
+      Value<String> code,
+      Value<int> productId,
+      Value<DateTime> confirmedAt,
+      Value<int> rowid,
+    });
+
+class $$EverliIdMatchesTableFilterComposer
+    extends Composer<_$AppDatabase, $EverliIdMatchesTable> {
+  $$EverliIdMatchesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get code => $composableBuilder(
+    column: $table.code,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get confirmedAt => $composableBuilder(
+    column: $table.confirmedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$EverliIdMatchesTableOrderingComposer
+    extends Composer<_$AppDatabase, $EverliIdMatchesTable> {
+  $$EverliIdMatchesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get code => $composableBuilder(
+    column: $table.code,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get confirmedAt => $composableBuilder(
+    column: $table.confirmedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$EverliIdMatchesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $EverliIdMatchesTable> {
+  $$EverliIdMatchesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get code =>
+      $composableBuilder(column: $table.code, builder: (column) => column);
+
+  GeneratedColumn<int> get productId =>
+      $composableBuilder(column: $table.productId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get confirmedAt => $composableBuilder(
+    column: $table.confirmedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$EverliIdMatchesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $EverliIdMatchesTable,
+          EverliIdMatche,
+          $$EverliIdMatchesTableFilterComposer,
+          $$EverliIdMatchesTableOrderingComposer,
+          $$EverliIdMatchesTableAnnotationComposer,
+          $$EverliIdMatchesTableCreateCompanionBuilder,
+          $$EverliIdMatchesTableUpdateCompanionBuilder,
+          (
+            EverliIdMatche,
+            BaseReferences<
+              _$AppDatabase,
+              $EverliIdMatchesTable,
+              EverliIdMatche
+            >,
+          ),
+          EverliIdMatche,
+          PrefetchHooks Function()
+        > {
+  $$EverliIdMatchesTableTableManager(
+    _$AppDatabase db,
+    $EverliIdMatchesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$EverliIdMatchesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$EverliIdMatchesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$EverliIdMatchesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> code = const Value.absent(),
+                Value<int> productId = const Value.absent(),
+                Value<DateTime> confirmedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => EverliIdMatchesCompanion(
+                code: code,
+                productId: productId,
+                confirmedAt: confirmedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String code,
+                required int productId,
+                required DateTime confirmedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => EverliIdMatchesCompanion.insert(
+                code: code,
+                productId: productId,
+                confirmedAt: confirmedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$EverliIdMatchesTable, EverliIdMatche>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $EverliIdMatchesTable,
+                    EverliIdMatche
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$EverliIdMatchesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $EverliIdMatchesTable,
+      EverliIdMatche,
+      $$EverliIdMatchesTableFilterComposer,
+      $$EverliIdMatchesTableOrderingComposer,
+      $$EverliIdMatchesTableAnnotationComposer,
+      $$EverliIdMatchesTableCreateCompanionBuilder,
+      $$EverliIdMatchesTableUpdateCompanionBuilder,
+      (
+        EverliIdMatche,
+        BaseReferences<_$AppDatabase, $EverliIdMatchesTable, EverliIdMatche>,
+      ),
+      EverliIdMatche,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3109,4 +3564,6 @@ class $AppDatabaseManager {
       $$EverliCacheTableTableManager(_db, _db.everliCache);
   $$EverliMatchesTableTableManager get everliMatches =>
       $$EverliMatchesTableTableManager(_db, _db.everliMatches);
+  $$EverliIdMatchesTableTableManager get everliIdMatches =>
+      $$EverliIdMatchesTableTableManager(_db, _db.everliIdMatches);
 }
