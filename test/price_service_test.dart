@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:spesa_trento/data/database.dart';
 import 'package:spesa_trento/data/ebsn_api.dart';
 import 'package:spesa_trento/data/ebsn_config.dart';
+import 'package:spesa_trento/data/everli_api.dart';
+import 'package:spesa_trento/data/everli_repository.dart';
 import 'package:spesa_trento/data/price_service.dart';
 import 'package:spesa_trento/data/product_repository.dart';
 import 'package:spesa_trento/domain/chain.dart';
@@ -65,6 +67,7 @@ void main() {
           currentStoreId: () => cartStore),
       coop: ProductRepository(
           api: api(EbsnConfig.coop, coopA), db: db, currentStoreId: () => null),
+      everli: EverliRepository(api: EverliApi(), db: db),
       cartStoreId: () => cartStore,
     );
   });

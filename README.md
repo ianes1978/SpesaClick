@@ -20,6 +20,7 @@ subito il prezzo a **DupliClick** (Poli, prezzo del punto vendita scelto) o a
 | **Riepilogo** | Totale, pezzi, risparmio (bollini + promo), totale nell'altro negozio e differenza. |
 | **Negozi nel confronto** | In **Negozi** (in alto nel carrello) scegli una lista di negozi fra le catene disponibili: listino online DupliClick, i punti vendita Poli di Trento, listino online Click&Coop. Una catena senza negozi selezionati resta fuori dal confronto. L'ordine conta: il primo è quello proposto per primo. |
 | **Scansione multi-negozio** | Il codice viene cercato in tutti i negozi selezionati; se il prodotto c'è in più negozi l'app chiede quale prezzo usare (si può disattivare: allora vale il primo della lista). Ogni riga mostra il prezzo negli altri negozi e il riepilogo il totale in ognuno, con il più conveniente evidenziato. |
+| **Equivalenti Lidl/MD** | Tocca una riga del carrello: prezzi per EAN negli altri negozi e prodotti equivalenti Lidl/MD da Everli, con "È lo stesso prodotto" per abbinarli. |
 | **Ricerca multi-negozio** | Il catalogo cerca in tutti i negozi selezionati e raggruppa per EAN; i filtri in alto mostrano un negozio alla volta. |
 | **Cambio negozio e confronto** | Selettore del punto vendita in alto e confronto IperPoli ↔ Gardolo (vedi avvertenze sotto). |
 | **Catalogo** | Ricerca istantanea (debounce di 300 ms) con paginazione infinita, filtri per categoria e la sezione "In evidenza" con prodotti trentini. Un tocco aggiunge il prodotto al carrello. |
@@ -71,8 +72,28 @@ personale, non per il Play Store.
 | Poli · altri punti vendita | Solo dalla cache (6 ore): "Aggiorna prezzi dei negozi Poli" nel riepilogo sposta il carrello DupliClick reale su ogni negozio, legge i prezzi e **ripristina** quello originale (con conferma). Nella ricerca testuale non sono interrogabili. |
 | Coop · listino online | Click&Coop, uguale per tutti i punti di ritiro |
 
-Lidl e MD (tramite Everli) non sono ancora supportati: servono le chiamate
-API di Everli. Aldi non è su Everli e non pubblica un listino online.
+| Lidl / MD · negozio Everli | Everli (`spesa.everli.com`), sessione anonima con un indirizzo fisso di Trento. Prezzi Everli: in negozio possono differire, consegna esclusa |
+| Aldi | **Non disponibile**: non è su Everli e non pubblica un listino online |
+
+## Lidl e MD tramite Everli
+
+Everli **non espone codici a barre**, quindi lo scanner non può trovare per
+EAN un prodotto Lidl o MD. L'app fa così:
+
+1. ricava nome e marca dall'EAN tramite Poli o Coop;
+2. cerca su Everli le prime parole significative del nome nei negozi Lidl/MD;
+3. calcola una somiglianza (parole in comune, marca, formato e unità
+   compatibili) e propone i 3 migliori come **equivalenti**, mai come lo
+   stesso articolo;
+4. tocca una riga del carrello per vedere gli equivalenti e premi
+   **"È lo stesso prodotto"**: l'abbinamento (EAN → prodotto Everli) viene
+   salvato e da lì in poi conta nei totali. Pressione lunga per toglierlo.
+
+Nel riepilogo il totale Lidl/MD è calcolato **solo sugli articoli abbinati**
+e indica quanti mancano. La ricerca testuale funziona anche su Everli, ma
+mostra solo i risultati che contengono tutte le parole cercate (la ricerca
+di Everli è "fuzzy" e restituisce sempre qualcosa). Non esiste un listino
+offline Everli. Una richiesta ogni 600 ms, cache di 12 ore.
 
 ## Click&Coop (Coop Trentino)
 

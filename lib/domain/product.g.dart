@@ -42,4 +42,9 @@ Map<String, dynamic> _$ProductToJson(_Product instance) => <String, dynamic>{
   'priceListName': ?instance.priceListName,
 };
 
-const _$ChainEnumMap = {Chain.poli: 'poli', Chain.coop: 'coop'};
+const _$ChainEnumMap = {
+  Chain.poli: 'poli',
+  Chain.coop: 'coop',
+  Chain.lidl: 'lidl',
+  Chain.md: 'md',
+};

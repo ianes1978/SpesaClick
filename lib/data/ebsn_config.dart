@@ -71,5 +71,9 @@ class EbsnConfig {
     extraHeaders: {'User-Agent': 'SpesaTrento (uso personale)'},
   );
 
-  static EbsnConfig of(Chain c) => c == Chain.poli ? poli : coop;
+  static EbsnConfig of(Chain c) => switch (c) {
+    Chain.poli => poli,
+    Chain.coop => coop,
+    _ => throw ArgumentError.value(c, "c", "non è una catena ebsn"),
+  };
 }

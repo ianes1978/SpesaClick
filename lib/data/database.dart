@@ -46,6 +46,28 @@ class CartLines extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Risposte Everli in cache (ricerche e dettagli prodotto, 12 ore).
+class EverliCache extends Table {
+  TextColumn get key => text()();
+  TextColumn get json => text()();
+  DateTimeColumn get readAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {key};
+}
+
+/// Abbinamenti confermati dall'utente: EAN (o codice) → prodotto Everli di
+/// un negozio.
+class EverliMatches extends Table {
+  TextColumn get code => text()();
+  IntColumn get storeId => integer()();
+  IntColumn get productId => integer()();
+  DateTimeColumn get confirmedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {code, storeId};
+}
+
 class KeyValues extends Table {
   TextColumn get key => text()();
   TextColumn get value => text()();
@@ -60,13 +82,22 @@ class CachedPrice {
   final DateTime readAt;
 }
 
-@DriftDatabase(tables: [PriceCache, Catalog, CartLines, KeyValues])
+@DriftDatabase(
+  tables: [
+    PriceCache,
+    Catalog,
+    CartLines,
+    KeyValues,
+    EverliCache,
+    EverliMatches,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
     : super(executor ?? driftDatabase(name: 'spesa_trento'));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -77,6 +108,10 @@ class AppDatabase extends _$AppDatabase {
         await m.deleteTable('catalog');
         await m.createTable(priceCache);
         await m.createTable(catalog);
+      }
+      if (from < 3) {
+        await m.createTable(everliCache);
+        await m.createTable(everliMatches);
       }
     },
   );
@@ -227,6 +262,43 @@ class AppDatabase extends _$AppDatabase {
       }
     });
   });
+
+  // ---- Everli ------------------------------------------------------------
+
+  Future<({String json, DateTime readAt})?> everliCached(String key) async {
+    final r = await (select(
+      everliCache,
+    )..where((t) => t.key.equals(key))).getSingleOrNull();
+    return r == null ? null : (json: r.json, readAt: r.readAt);
+  }
+
+  Future<void> putEverli(String key, String json, DateTime at) =>
+      into(everliCache).insertOnConflictUpdate(
+        EverliCacheCompanion.insert(key: key, json: json, readAt: at),
+      );
+
+  Future<int?> everliMatch(String code, int storeId) async =>
+      (await (select(everliMatches)
+                ..where((t) => t.code.equals(code) & t.storeId.equals(storeId)))
+              .getSingleOrNull())
+          ?.productId;
+
+  Future<void> setEverliMatch(String code, int storeId, int? productId) async {
+    if (productId == null) {
+      await (delete(
+        everliMatches,
+      )..where((t) => t.code.equals(code) & t.storeId.equals(storeId))).go();
+    } else {
+      await into(everliMatches).insertOnConflictUpdate(
+        EverliMatchesCompanion.insert(
+          code: code,
+          storeId: storeId,
+          productId: productId,
+          confirmedAt: DateTime.now(),
+        ),
+      );
+    }
+  }
 
   // ---- impostazioni -------------------------------------------------------
 

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/api_exceptions.dart';
-import '../../domain/cart_math.dart';
 import '../../domain/chain.dart';
 import '../feedback.dart';
 import '../providers.dart';
@@ -295,9 +294,7 @@ class _SummaryBarState extends ConsumerState<_SummaryBar> {
     final theme = Theme.of(context);
     final small = theme.textTheme.bodySmall;
 
-    final complete = storeTotals
-        .where((t) => t.missing == 0 && t.unavailable == null)
-        .toList();
+    final complete = storeTotals.where((t) => t.complete).toList();
     final cheapest = complete.isEmpty
         ? null
         : complete.reduce((a, b) => a.total <= b.total ? a : b);
@@ -323,12 +320,15 @@ class _SummaryBarState extends ConsumerState<_SummaryBar> {
               Expanded(
                 child: Text(
                   t.unavailable ??
-                      '${t.store.shortLabel}${t.missing > 0 ? ' (${t.missing} senza prezzo)' : ''}',
+                      (t.matched == 0
+                          ? '${t.store.shortLabel}: nessun articolo abbinato'
+                          : '${t.store.shortLabel}'
+                                '${t.complete ? '' : ' (${t.matched}/${t.count} articoli, mancano ${t.missing})'}'),
                   style: small,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (t.unavailable == null) ...[
+              if (t.unavailable == null && t.matched > 0) ...[
                 Text(
                   eur(t.total),
                   style: small?.copyWith(
@@ -338,18 +338,25 @@ class _SummaryBarState extends ConsumerState<_SummaryBar> {
                 SizedBox(
                   width: 64,
                   child: Text(
-                    () {
-                      final d = round2(t.total - totals.total);
-                      return d == 0
-                          ? '='
-                          : '${d > 0 ? '+' : '−'}${eur(d.abs())}';
-                    }(),
+                    t.diff == 0
+                        ? '='
+                        : '${t.diff > 0 ? '+' : '−'}${eur(t.diff.abs())}',
                     textAlign: TextAlign.end,
                     style: small,
                   ),
                 ),
               ],
             ],
+          ),
+        ),
+      if (storeTotals.any((t) => t.store.chain.isEverli))
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text(
+            'Lidl/MD: prezzi Everli sui soli articoli abbinati, in negozio '
+            'possono differire; consegna esclusa. Tocca una riga per gli '
+            'equivalenti.',
+            style: small?.copyWith(color: theme.colorScheme.outline),
           ),
         ),
     ];

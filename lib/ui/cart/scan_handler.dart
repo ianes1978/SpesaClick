@@ -88,14 +88,21 @@ Future<ScanOutcome> processScan(
   if (found.isEmpty) {
     final failed = results.whereType<QuoteFailed>().firstOrNull;
     if (code.length == 13 && code.startsWith('2')) {
-      final outcome = ScanNeedsWeight(code, stores.first.chain);
+      final chain =
+          stores.where((s) => !s.chain.isEverli).firstOrNull?.chain ??
+          Chain.poli;
+      final outcome = ScanNeedsWeight(code, chain);
       if (!context.mounted) return outcome;
       return await completeWeight(context, ref, outcome)
           ? outcome
           : const ScanCancelled();
     }
     if (failed != null &&
-        results.every((r) => r is QuoteFailed || r is QuoteUnavailable)) {
+        results.every(
+          (r) =>
+              r is QuoteFailed || r is QuoteUnavailable || r is QuoteNotFound,
+        ) &&
+        results.any((r) => r is QuoteFailed)) {
       return ScanError(failed.message);
     }
     final unavailable = results.whereType<QuoteUnavailable>().firstOrNull;

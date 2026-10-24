@@ -22,6 +22,9 @@ class SourceBadge extends StatelessWidget {
         ? 'offline · ${shortDate(quote.readAt)}'
         : quote.source.badge;
     if (quote.chain == Chain.coop) text = 'Coop · $text';
+    if (quote.chain.isEverli) {
+      text = '${quote.chain.label} · Everli ${shortDate(quote.readAt)}';
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(

@@ -8,6 +8,8 @@ import '../data/api_exceptions.dart';
 import '../data/database.dart';
 import '../data/ebsn_api.dart';
 import '../data/ebsn_config.dart';
+import '../data/everli_api.dart';
+import '../data/everli_repository.dart';
 import '../data/price_service.dart';
 import '../data/product_repository.dart';
 import '../data/session_storage.dart';
@@ -18,6 +20,7 @@ import '../domain/chain.dart';
 import '../domain/ean.dart';
 import '../domain/price_quote.dart';
 import '../domain/price_store.dart';
+import '../domain/product.dart';
 import '../domain/store.dart';
 
 // ---- infrastruttura ---------------------------------------------------------
@@ -57,11 +60,21 @@ final poliOnlineRepoProvider = Provider<ProductRepository>((ref) {
   );
 });
 
+final everliApiProvider = Provider<EverliApi>((ref) => EverliApi());
+
+final everliRepoProvider = Provider<EverliRepository>(
+  (ref) => EverliRepository(
+    api: ref.watch(everliApiProvider),
+    db: ref.watch(dbProvider),
+  ),
+);
+
 final priceServiceProvider = Provider<PriceService>((ref) {
   return PriceService(
     poliOnline: ref.watch(poliOnlineRepoProvider),
     poliSession: ref.watch(productRepoProvider(Chain.poli)),
     coop: ref.watch(productRepoProvider(Chain.coop)),
+    everli: ref.watch(everliRepoProvider),
     cartStoreId: () => ref.read(sessionProvider).storeId,
   );
 });
@@ -137,6 +150,7 @@ final selectedStoresProvider =
 /// Tutti i negozi che si possono aggiungere al confronto.
 final availableStoresProvider = FutureProvider<List<PriceStore>>((ref) async {
   final poli = await ref.watch(storesProvider.future);
+  final everli = await ref.watch(everliStoresProvider.future);
   return [
     PriceStore.poliOnline,
     for (final s in poli)
@@ -150,7 +164,29 @@ final availableStoresProvider = FutureProvider<List<PriceStore>>((ref) async {
         ].whereType<String>().where((e) => e.isNotEmpty).join(', '),
       ),
     PriceStore.coopOnline,
+    ...everli,
   ];
+});
+
+/// Negozi Lidl e MD che Everli serve all'indirizzo di Trento.
+/// Lista vuota se Everli non risponde (l'errore va in [everliErrorProvider]).
+final everliStoresProvider = FutureProvider<List<PriceStore>>((ref) async {
+  try {
+    final list = await ref.watch(everliRepoProvider).stores();
+    return [
+      for (final s in list)
+        if (s.chain case final c?)
+          PriceStore(
+            chain: c,
+            storeId: s.id,
+            name: '${c.label} · ${s.address ?? s.name}',
+            address: s.address,
+          ),
+    ];
+  } on ApiException catch (e) {
+    debugPrint('Everli store_list: $e');
+    return const [];
+  }
 });
 
 /// Chiedere quale prezzo usare quando il prodotto è in più negozi.
@@ -422,6 +458,31 @@ class StoreQuotesNotifier extends Notifier<Map<String, StoreQuote>> {
     };
   }
 
+  /// L'utente conferma che [p] (Everli) è lo stesso prodotto della riga.
+  Future<void> confirmMatch(PriceStore s, CartItem item, Product p) async {
+    await ref
+        .read(priceServiceProvider)
+        .setEverliMatch(s, item.product.barcode, p);
+    state = {
+      ...state,
+      storeQuoteKey(s.id, item.id): QuoteFound(
+        LookupResult(
+          p,
+          p.quote(PriceSource.online, DateTime.now(), storeId: s.storeId),
+        ),
+      ),
+    };
+  }
+
+  /// Toglie l'abbinamento e ripropone i prodotti simili.
+  Future<void> removeMatch(PriceStore s, CartItem item) async {
+    await ref
+        .read(priceServiceProvider)
+        .setEverliMatch(s, item.product.barcode, null);
+    state = {...state}..remove(storeQuoteKey(s.id, item.id));
+    _fill();
+  }
+
   /// Rilegge le righe senza prezzo (errori, negozi non disponibili).
   void refresh() {
     state = {
@@ -453,7 +514,7 @@ class StoreQuotesNotifier extends Notifier<Map<String, StoreQuote>> {
         final (store, item) = todo;
         final q = await ref
             .read(priceServiceProvider)
-            .quote(store, item.product.barcode);
+            .quote(store, item.product.barcode, reference: item.product);
         state = {...state, storeQuoteKey(store.id, item.id): q};
       }
     } finally {
@@ -479,18 +540,34 @@ PriceQuote? quoteIn(
 }
 
 class StoreTotal {
-  const StoreTotal(this.store, this.total, this.missing, this.unavailable);
+  const StoreTotal(
+    this.store, {
+    required this.total,
+    required this.here,
+    required this.matched,
+    required this.count,
+    this.unavailable,
+  });
   final PriceStore store;
+
+  /// Totale nel negozio, solo sulle righe con un prezzo lì.
   final double total;
 
-  /// Righe senza prezzo in questo negozio (conteggiate al prezzo della riga).
-  final int missing;
+  /// Le stesse righe al prezzo del carrello.
+  final double here;
+  final int matched;
+  final int count;
 
   /// Il negozio non si può leggere adesso.
   final String? unavailable;
+
+  int get missing => count - matched;
+  bool get complete => matched == count && count > 0;
+  double get diff => round2(total - here);
 }
 
-/// Totale del carrello in ogni negozio selezionato.
+/// Totale del carrello in ogni negozio selezionato, calcolato solo sulle
+/// righe abbinate (per Everli: abbinamenti confermati).
 final storeTotalsProvider = Provider<List<StoreTotal>>((ref) {
   final items = ref
       .watch(cartProvider)
@@ -502,15 +579,21 @@ final storeTotalsProvider = Provider<List<StoreTotal>>((ref) {
   return [
     for (final s in ref.watch(selectedStoresProvider))
       () {
-        final map = <String, PriceQuote>{
-          for (final i in items) i.id: ?quoteIn(s, i, quotes),
-        };
-        final o = otherStoreTotal(items, map, keyOf: (i) => i.id);
+        var total = 0.0, here = 0.0, matched = 0;
+        for (final i in items) {
+          final q = quoteIn(s, i, quotes);
+          if (q == null) continue;
+          matched++;
+          total += lineTotals(i, quote: q).net;
+          here += lineTotals(i).net;
+        }
         return StoreTotal(
           s,
-          o.total,
-          o.missing,
-          map.isEmpty ? svc.unavailableReason(s) : null,
+          total: round2(total),
+          here: round2(here),
+          matched: matched,
+          count: items.length,
+          unavailable: matched == 0 ? svc.unavailableReason(s) : null,
         );
       }(),
   ];

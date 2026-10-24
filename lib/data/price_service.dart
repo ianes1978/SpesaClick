@@ -1,9 +1,13 @@
 import 'package:flutter/foundation.dart';
 
 import '../domain/chain.dart';
+import '../domain/ean.dart';
+import '../domain/price_quote.dart';
 import '../domain/price_store.dart';
+import '../domain/product.dart';
 import 'api_exceptions.dart';
 import 'ebsn_api.dart';
+import 'everli_repository.dart';
 import 'product_repository.dart';
 
 /// Esito della lettura di un prezzo in un negozio.
@@ -27,6 +31,13 @@ class QuoteUnavailable extends StoreQuote {
   final String reason;
 }
 
+/// Everli: nessun abbinamento confermato, ma prodotti simili da proporre.
+/// Non entrano nei totali finché l'utente non conferma.
+class QuoteSimilar extends StoreQuote {
+  const QuoteSimilar(this.candidates);
+  final List<ScoredProduct> candidates;
+}
+
 class QuoteFailed extends StoreQuote {
   const QuoteFailed(this.message);
   final String message;
@@ -39,24 +50,28 @@ class QuoteFailed extends StoreQuote {
 ///   nel carrello DupliClick; per gli altri negozi si usano i prezzi in cache
 ///   letti con "Aggiorna prezzi Poli" (che sposta il carrello e lo ripristina).
 /// * Coop → listino online Click&Coop (uguale per tutti i punti di ritiro).
+/// * Lidl / MD → Everli: niente EAN. Vale l'abbinamento confermato
+///   dall'utente; altrimenti si propongono prodotti simili al riferimento.
 class PriceService {
   PriceService({
     required this.poliOnline,
     required this.poliSession,
     required this.coop,
+    required this.everli,
     required this.cartStoreId,
   });
 
   final ProductRepository poliOnline;
   final ProductRepository poliSession;
   final ProductRepository coop;
+  final EverliRepository everli;
 
   /// Negozio attivo nel carrello DupliClick, null se non collegato.
   final int? Function() cartStoreId;
 
   /// Il negozio risponde in diretta (ricerca testuale compresa)?
   bool isLive(PriceStore s) =>
-      s.chain == Chain.coop || s.isOnline || s.storeId == cartStoreId();
+      s.chain != Chain.poli || s.isOnline || s.storeId == cartStoreId();
 
   String? unavailableReason(PriceStore s) {
     if (isLive(s)) return null;
@@ -68,10 +83,21 @@ class PriceService {
   ProductRepository _repo(PriceStore s) => switch (s.chain) {
     Chain.coop => coop,
     Chain.poli => s.isOnline ? poliOnline : poliSession,
+    Chain.lidl || Chain.md => throw ArgumentError(
+      '${s.chain.label} non ha un listino per EAN',
+    ),
   };
 
-  Future<StoreQuote> quote(PriceStore s, String code) async {
+  /// Prezzo di [code] nel negozio [s]. Per Everli serve [reference]: il
+  /// prodotto trovato per EAN altrove, da cui si cercano gli equivalenti.
+  Future<StoreQuote> quote(
+    PriceStore s,
+    String code, {
+    Product? reference,
+  }) async {
     try {
+      if (s.chain.isEverli) return await _everliQuote(s, code, reference);
+      if (!isDigits(code)) return const QuoteNotFound();
       if (!isLive(s)) {
         final q = await poliSession.cachedQuote(s.storeId!, code);
         if (q == null) return QuoteUnavailable(unavailableReason(s)!);
@@ -88,12 +114,58 @@ class PriceService {
     }
   }
 
+  Future<StoreQuote> _everliQuote(
+    PriceStore s,
+    String code,
+    Product? reference,
+  ) async {
+    final storeId = s.storeId!;
+    final matched = await everli.match(code, storeId);
+    if (matched != null) {
+      final r = await everli.product(storeId, s.chain, matched);
+      if (r != null) {
+        return QuoteFound(
+          LookupResult(
+            r.product,
+            r.product.quote(PriceSource.online, r.readAt, storeId: storeId),
+          ),
+        );
+      }
+    }
+    if (reference == null) {
+      return const QuoteUnavailable(
+        'Everli non ha EAN: serve il nome del prodotto da un altro negozio',
+      );
+    }
+    final c = await everli.equivalents(storeId, s.chain, reference);
+    return c.isEmpty ? const QuoteNotFound() : QuoteSimilar(c);
+  }
+
+  /// Conferma (o toglie, con null) l'abbinamento di [code] a un prodotto
+  /// Everli del negozio [s].
+  Future<void> setEverliMatch(PriceStore s, String code, Product? p) =>
+      everli.setMatch(code, s.storeId!, p?.productId);
+
   /// Ricerca testuale in un negozio "in diretta".
   Future<({ProductPage page, bool offline})> search(
     PriceStore s,
     String q, {
     int page = 1,
-  }) => _repo(s).search(q, page: page);
+  }) async {
+    if (s.chain.isEverli) {
+      final r = await everli.search(s.storeId!, s.chain, q, page: page);
+      return (
+        page: ProductPage(
+          products: r.products,
+          page: page,
+          totPages: r.hasMore ? page + 1 : page,
+          totItems: r.products.length,
+        ),
+        offline: false,
+      );
+    }
+    return _repo(s).search(q, page: page);
+  }
 
   Future<ProductPage> byCategory(
     PriceStore s,

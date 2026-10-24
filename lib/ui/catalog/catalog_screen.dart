@@ -204,6 +204,7 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
       if (a?.storeId != b.storeId) _start(_search.text);
     });
     final hasCoop = selected.any((s) => s.chain == Chain.coop);
+    final hasEverli = selected.any((s) => s.chain.isEverli);
     final visible = _groups.values
         .where((g) => _filter == null || g.byStore.containsKey(_filter))
         .toList();
@@ -295,6 +296,16 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
               child: Text(
                 'Prezzi Coop: listino online Click&Coop, in negozio possono '
                 'differire.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          if (hasEverli)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'Lidl/MD: prezzi Everli (data di lettura sul prodotto), in '
+                'negozio possono differire. Si mostrano solo i risultati che '
+                'contengono tutte le parole cercate.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),

@@ -21,4 +21,9 @@ Map<String, dynamic> _$PriceStoreToJson(_PriceStore instance) =>
       'address': ?instance.address,
     };
 
-const _$ChainEnumMap = {Chain.poli: 'poli', Chain.coop: 'coop'};
+const _$ChainEnumMap = {
+  Chain.poli: 'poli',
+  Chain.coop: 'coop',
+  Chain.lidl: 'lidl',
+  Chain.md: 'md',
+};

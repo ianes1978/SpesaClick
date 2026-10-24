@@ -34,4 +34,9 @@ const _$PriceSourceEnumMap = {
   PriceSource.offline: 'offline',
 };
 
-const _$ChainEnumMap = {Chain.poli: 'poli', Chain.coop: 'coop'};
+const _$ChainEnumMap = {
+  Chain.poli: 'poli',
+  Chain.coop: 'coop',
+  Chain.lidl: 'lidl',
+  Chain.md: 'md',
+};

@@ -97,7 +97,32 @@ class StoresScreen extends ConsumerWidget {
                     title: Text(s.isOnline ? s.name : s.shortLabel),
                     subtitle: Text(_hint(s)),
                   ),
+                if (chain.isEverli && !list.any((s) => s.chain == chain))
+                  ListTile(
+                    leading: const Icon(Icons.cloud_off),
+                    title: Text('${chain.label}: nessun negozio da Everli'),
+                    subtitle: const Text(
+                      'Everli non risponde o non serve Trento. Riprova più tardi.',
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.refresh),
+                      onPressed: () => ref.invalidate(everliStoresProvider),
+                    ),
+                  ),
               ],
+              ListTile(
+                dense: true,
+                title: Text('Aldi', style: theme.textTheme.labelLarge),
+              ),
+              const CheckboxListTile(
+                value: false,
+                onChanged: null,
+                title: Text('Aldi'),
+                subtitle: Text(
+                  'Non disponibile: Aldi non è su Everli e non pubblica un '
+                  'listino online.',
+                ),
+              ),
             ],
             loading: () => const [LinearProgressIndicator()],
             error: (e, _) => [
@@ -136,15 +161,6 @@ class StoresScreen extends ConsumerWidget {
               ],
             ),
           ),
-          header('In arrivo'),
-          const ListTile(
-            leading: Icon(Icons.hourglass_empty),
-            title: Text('Lidl e MD (tramite Everli)'),
-            subtitle: Text(
-              'Servono le chiamate API di Everli. Aldi non è su '
-              'Everli e non ha un listino online.',
-            ),
-          ),
           const SizedBox(height: 32),
         ],
       ),
@@ -154,6 +170,9 @@ class StoresScreen extends ConsumerWidget {
   static String _hint(PriceStore s) => switch (s) {
     PriceStore(chain: Chain.coop) =>
       'Un unico listino per tutti i punti di ritiro',
+    PriceStore(chain: Chain.lidl || Chain.md) =>
+      'Prezzi Everli, in negozio possono differire. Niente EAN: si '
+          'propongono prodotti equivalenti da confermare',
     PriceStore(chain: Chain.poli, isOnline: true) =>
       'Senza login, uguale per tutti i negozi',
     _ => [
