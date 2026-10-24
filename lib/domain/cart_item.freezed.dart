@@ -21,7 +21,8 @@ mixin _$CartItem {
  double? get weightKg;/// Totale stampato sull'etichetta (o inserito a mano).
  double? get labelTotal;/// Prezzo al kg corretto a mano dall'utente.
  double? get pricePerKgOverride;/// Bollino scadenza: 0, 30 o 50.
- int get discountPercent; DateTime get addedAt;
+ int get discountPercent;/// Spuntato: già messo nel carrello in negozio.
+ bool get taken; DateTime get addedAt;
 /// Create a copy of CartItem
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -35,20 +36,20 @@ $CartItemCopyWith<CartItem> get copyWith => _$CartItemCopyWithImpl<CartItem>(thi
 @override
 bool operator ==(Object other) {
   final _this = this as CartItem;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is CartItem&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.product, _this.product) || other.product == _this.product)&&(identical(other.quote, _this.quote) || other.quote == _this.quote)&&(identical(other.quantity, _this.quantity) || other.quantity == _this.quantity)&&(identical(other.weightKg, _this.weightKg) || other.weightKg == _this.weightKg)&&(identical(other.labelTotal, _this.labelTotal) || other.labelTotal == _this.labelTotal)&&(identical(other.pricePerKgOverride, _this.pricePerKgOverride) || other.pricePerKgOverride == _this.pricePerKgOverride)&&(identical(other.discountPercent, _this.discountPercent) || other.discountPercent == _this.discountPercent)&&(identical(other.addedAt, _this.addedAt) || other.addedAt == _this.addedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is CartItem&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.product, _this.product) || other.product == _this.product)&&(identical(other.quote, _this.quote) || other.quote == _this.quote)&&(identical(other.quantity, _this.quantity) || other.quantity == _this.quantity)&&(identical(other.weightKg, _this.weightKg) || other.weightKg == _this.weightKg)&&(identical(other.labelTotal, _this.labelTotal) || other.labelTotal == _this.labelTotal)&&(identical(other.pricePerKgOverride, _this.pricePerKgOverride) || other.pricePerKgOverride == _this.pricePerKgOverride)&&(identical(other.discountPercent, _this.discountPercent) || other.discountPercent == _this.discountPercent)&&(identical(other.taken, _this.taken) || other.taken == _this.taken)&&(identical(other.addedAt, _this.addedAt) || other.addedAt == _this.addedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as CartItem;
-  return Object.hash(runtimeType,_this.id,_this.product,_this.quote,_this.quantity,_this.weightKg,_this.labelTotal,_this.pricePerKgOverride,_this.discountPercent,_this.addedAt);
+  return Object.hash(runtimeType,_this.id,_this.product,_this.quote,_this.quantity,_this.weightKg,_this.labelTotal,_this.pricePerKgOverride,_this.discountPercent,_this.taken,_this.addedAt);
 }
 
 @override
 String toString() {
   final _this = this as CartItem;
-  return 'CartItem(id: ${_this.id}, product: ${_this.product}, quote: ${_this.quote}, quantity: ${_this.quantity}, weightKg: ${_this.weightKg}, labelTotal: ${_this.labelTotal}, pricePerKgOverride: ${_this.pricePerKgOverride}, discountPercent: ${_this.discountPercent}, addedAt: ${_this.addedAt})';
+  return 'CartItem(id: ${_this.id}, product: ${_this.product}, quote: ${_this.quote}, quantity: ${_this.quantity}, weightKg: ${_this.weightKg}, labelTotal: ${_this.labelTotal}, pricePerKgOverride: ${_this.pricePerKgOverride}, discountPercent: ${_this.discountPercent}, taken: ${_this.taken}, addedAt: ${_this.addedAt})';
 }
 
 
@@ -59,7 +60,7 @@ abstract mixin class $CartItemCopyWith<$Res>  {
   factory $CartItemCopyWith(CartItem value, $Res Function(CartItem) _then) = _$CartItemCopyWithImpl;
 @useResult
 $Res call({
- String id, Product product, PriceQuote quote, int quantity, double? weightKg, double? labelTotal, double? pricePerKgOverride, int discountPercent, DateTime addedAt
+ String id, Product product, PriceQuote quote, int quantity, double? weightKg, double? labelTotal, double? pricePerKgOverride, int discountPercent, bool taken, DateTime addedAt
 });
 
 
@@ -76,7 +77,7 @@ class _$CartItemCopyWithImpl<$Res>
 
 /// Create a copy of CartItem
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? product = null,Object? quote = null,Object? quantity = null,Object? weightKg = freezed,Object? labelTotal = freezed,Object? pricePerKgOverride = freezed,Object? discountPercent = null,Object? addedAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? product = null,Object? quote = null,Object? quantity = null,Object? weightKg = freezed,Object? labelTotal = freezed,Object? pricePerKgOverride = freezed,Object? discountPercent = null,Object? taken = null,Object? addedAt = null,}) {
   return _then(CartItem(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,product: null == product ? _self.product : product // ignore: cast_nullable_to_non_nullable
@@ -86,7 +87,8 @@ as int,weightKg: freezed == weightKg ? _self.weightKg : weightKg // ignore: cast
 as double?,labelTotal: freezed == labelTotal ? _self.labelTotal : labelTotal // ignore: cast_nullable_to_non_nullable
 as double?,pricePerKgOverride: freezed == pricePerKgOverride ? _self.pricePerKgOverride : pricePerKgOverride // ignore: cast_nullable_to_non_nullable
 as double?,discountPercent: null == discountPercent ? _self.discountPercent : discountPercent // ignore: cast_nullable_to_non_nullable
-as int,addedAt: null == addedAt ? _self.addedAt : addedAt // ignore: cast_nullable_to_non_nullable
+as int,taken: null == taken ? _self.taken : taken // ignore: cast_nullable_to_non_nullable
+as bool,addedAt: null == addedAt ? _self.addedAt : addedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,
   ));
 }
@@ -190,10 +192,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  Product product,  PriceQuote quote,  int quantity,  double? weightKg,  double? labelTotal,  double? pricePerKgOverride,  int discountPercent,  DateTime addedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  Product product,  PriceQuote quote,  int quantity,  double? weightKg,  double? labelTotal,  double? pricePerKgOverride,  int discountPercent,  bool taken,  DateTime addedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _CartItem() when $default != null:
-return $default(_that.id,_that.product,_that.quote,_that.quantity,_that.weightKg,_that.labelTotal,_that.pricePerKgOverride,_that.discountPercent,_that.addedAt);case _:
+return $default(_that.id,_that.product,_that.quote,_that.quantity,_that.weightKg,_that.labelTotal,_that.pricePerKgOverride,_that.discountPercent,_that.taken,_that.addedAt);case _:
   return orElse();
 
 }
@@ -211,10 +213,10 @@ return $default(_that.id,_that.product,_that.quote,_that.quantity,_that.weightKg
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  Product product,  PriceQuote quote,  int quantity,  double? weightKg,  double? labelTotal,  double? pricePerKgOverride,  int discountPercent,  DateTime addedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  Product product,  PriceQuote quote,  int quantity,  double? weightKg,  double? labelTotal,  double? pricePerKgOverride,  int discountPercent,  bool taken,  DateTime addedAt)  $default,) {final _that = this;
 switch (_that) {
 case _CartItem():
-return $default(_that.id,_that.product,_that.quote,_that.quantity,_that.weightKg,_that.labelTotal,_that.pricePerKgOverride,_that.discountPercent,_that.addedAt);case _:
+return $default(_that.id,_that.product,_that.quote,_that.quantity,_that.weightKg,_that.labelTotal,_that.pricePerKgOverride,_that.discountPercent,_that.taken,_that.addedAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -231,10 +233,10 @@ return $default(_that.id,_that.product,_that.quote,_that.quantity,_that.weightKg
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  Product product,  PriceQuote quote,  int quantity,  double? weightKg,  double? labelTotal,  double? pricePerKgOverride,  int discountPercent,  DateTime addedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  Product product,  PriceQuote quote,  int quantity,  double? weightKg,  double? labelTotal,  double? pricePerKgOverride,  int discountPercent,  bool taken,  DateTime addedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _CartItem() when $default != null:
-return $default(_that.id,_that.product,_that.quote,_that.quantity,_that.weightKg,_that.labelTotal,_that.pricePerKgOverride,_that.discountPercent,_that.addedAt);case _:
+return $default(_that.id,_that.product,_that.quote,_that.quantity,_that.weightKg,_that.labelTotal,_that.pricePerKgOverride,_that.discountPercent,_that.taken,_that.addedAt);case _:
   return null;
 
 }
@@ -246,7 +248,7 @@ return $default(_that.id,_that.product,_that.quote,_that.quantity,_that.weightKg
 @JsonSerializable()
 
 class _CartItem extends CartItem {
-  const _CartItem({required this.id, required this.product, required this.quote, this.quantity = 1, this.weightKg, this.labelTotal, this.pricePerKgOverride, this.discountPercent = 0, required this.addedAt}): super._();
+  const _CartItem({required this.id, required this.product, required this.quote, this.quantity = 1, this.weightKg, this.labelTotal, this.pricePerKgOverride, this.discountPercent = 0, this.taken = false, required this.addedAt}): super._();
   factory _CartItem.fromJson(Map<String, dynamic> json) => _$CartItemFromJson(json);
 
 /// Chiave della riga: EAN del prodotto, o codice completo dell'etichetta.
@@ -262,6 +264,8 @@ class _CartItem extends CartItem {
 @override final  double? pricePerKgOverride;
 /// Bollino scadenza: 0, 30 o 50.
 @override@JsonKey() final  int discountPercent;
+/// Spuntato: già messo nel carrello in negozio.
+@override@JsonKey() final  bool taken;
 @override final  DateTime addedAt;
 
 /// Create a copy of CartItem
@@ -277,18 +281,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _CartItem&&(identical(other.id, id) || other.id == id)&&(identical(other.product, product) || other.product == product)&&(identical(other.quote, quote) || other.quote == quote)&&(identical(other.quantity, quantity) || other.quantity == quantity)&&(identical(other.weightKg, weightKg) || other.weightKg == weightKg)&&(identical(other.labelTotal, labelTotal) || other.labelTotal == labelTotal)&&(identical(other.pricePerKgOverride, pricePerKgOverride) || other.pricePerKgOverride == pricePerKgOverride)&&(identical(other.discountPercent, discountPercent) || other.discountPercent == discountPercent)&&(identical(other.addedAt, addedAt) || other.addedAt == addedAt));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _CartItem&&(identical(other.id, id) || other.id == id)&&(identical(other.product, product) || other.product == product)&&(identical(other.quote, quote) || other.quote == quote)&&(identical(other.quantity, quantity) || other.quantity == quantity)&&(identical(other.weightKg, weightKg) || other.weightKg == weightKg)&&(identical(other.labelTotal, labelTotal) || other.labelTotal == labelTotal)&&(identical(other.pricePerKgOverride, pricePerKgOverride) || other.pricePerKgOverride == pricePerKgOverride)&&(identical(other.discountPercent, discountPercent) || other.discountPercent == discountPercent)&&(identical(other.taken, taken) || other.taken == taken)&&(identical(other.addedAt, addedAt) || other.addedAt == addedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,product,quote,quantity,weightKg,labelTotal,pricePerKgOverride,discountPercent,addedAt);
+    return Object.hash(runtimeType,id,product,quote,quantity,weightKg,labelTotal,pricePerKgOverride,discountPercent,taken,addedAt);
 }
 
 @override
 String toString() {
-    return 'CartItem(id: $id, product: $product, quote: $quote, quantity: $quantity, weightKg: $weightKg, labelTotal: $labelTotal, pricePerKgOverride: $pricePerKgOverride, discountPercent: $discountPercent, addedAt: $addedAt)';
+    return 'CartItem(id: $id, product: $product, quote: $quote, quantity: $quantity, weightKg: $weightKg, labelTotal: $labelTotal, pricePerKgOverride: $pricePerKgOverride, discountPercent: $discountPercent, taken: $taken, addedAt: $addedAt)';
 }
 
 
@@ -299,7 +303,7 @@ abstract mixin class _$CartItemCopyWith<$Res> implements $CartItemCopyWith<$Res>
   factory _$CartItemCopyWith(_CartItem value, $Res Function(_CartItem) _then) = __$CartItemCopyWithImpl;
 @override @useResult
 $Res call({
- String id, Product product, PriceQuote quote, int quantity, double? weightKg, double? labelTotal, double? pricePerKgOverride, int discountPercent, DateTime addedAt
+ String id, Product product, PriceQuote quote, int quantity, double? weightKg, double? labelTotal, double? pricePerKgOverride, int discountPercent, bool taken, DateTime addedAt
 });
 
 
@@ -316,7 +320,7 @@ class __$CartItemCopyWithImpl<$Res>
 
 /// Create a copy of CartItem
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? product = null,Object? quote = null,Object? quantity = null,Object? weightKg = freezed,Object? labelTotal = freezed,Object? pricePerKgOverride = freezed,Object? discountPercent = null,Object? addedAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? product = null,Object? quote = null,Object? quantity = null,Object? weightKg = freezed,Object? labelTotal = freezed,Object? pricePerKgOverride = freezed,Object? discountPercent = null,Object? taken = null,Object? addedAt = null,}) {
   return _then(_CartItem(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,product: null == product ? _self.product : product // ignore: cast_nullable_to_non_nullable
@@ -326,7 +330,8 @@ as int,weightKg: freezed == weightKg ? _self.weightKg : weightKg // ignore: cast
 as double?,labelTotal: freezed == labelTotal ? _self.labelTotal : labelTotal // ignore: cast_nullable_to_non_nullable
 as double?,pricePerKgOverride: freezed == pricePerKgOverride ? _self.pricePerKgOverride : pricePerKgOverride // ignore: cast_nullable_to_non_nullable
 as double?,discountPercent: null == discountPercent ? _self.discountPercent : discountPercent // ignore: cast_nullable_to_non_nullable
-as int,addedAt: null == addedAt ? _self.addedAt : addedAt // ignore: cast_nullable_to_non_nullable
+as int,taken: null == taken ? _self.taken : taken // ignore: cast_nullable_to_non_nullable
+as bool,addedAt: null == addedAt ? _self.addedAt : addedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,
   ));
 }

@@ -28,6 +28,9 @@ abstract class CartItem with _$CartItem {
 
     /// Bollino scadenza: 0, 30 o 50.
     @Default(0) int discountPercent,
+
+    /// Spuntato: già messo nel carrello in negozio.
+    @Default(false) bool taken,
     required DateTime addedAt,
   }) = _CartItem;
 

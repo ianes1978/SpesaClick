@@ -73,7 +73,7 @@ class _CompareSheet extends ConsumerWidget {
               dense: true,
               leading: const Icon(Icons.shopping_cart),
               title: Text(s.shortLabel),
-              subtitle: const Text('Prezzo usato nella riga'),
+              subtitle: const Text('Qui compri questo articolo'),
               trailing: Text(eur(hereNet)),
             )
           else
@@ -130,7 +130,7 @@ class _StoreSection extends ConsumerWidget {
         );
       case QuoteFound(:final result):
         final there = lineTotals(item, quote: result.quote).net;
-        return ListTile(
+        final tile = ListTile(
           dense: true,
           leading: Icon(everli ? Icons.link : Icons.check_circle_outline),
           title: Text(store.shortLabel),
@@ -152,6 +152,25 @@ class _StoreSection extends ConsumerWidget {
             ],
           ),
           onLongPress: everli ? () => notifier.removeMatch(store, item) : null,
+        );
+        return Column(
+          children: [
+            tile,
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: TextButton.icon(
+                  onPressed: () {
+                    notifier.moveItem(item, store);
+                    Navigator.of(context).pop();
+                  },
+                  icon: const Icon(Icons.place, size: 16),
+                  label: Text('Compra qui (${store.shortLabel})'),
+                ),
+              ),
+            ),
+          ],
         );
       case QuoteSimilar(:final candidates):
         return Column(

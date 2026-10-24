@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spesa_trento/domain/cart_item.dart';
 import 'package:spesa_trento/domain/cart_math.dart';
@@ -149,5 +151,14 @@ void main() {
     expect(o.total, 10.60);
     expect(o.missing, 1);
     expect(cartTotals([a, b, c]).total, 10.00);
+  });
+
+  test('spunta "preso" salvata; carrelli vecchi senza il campo', () {
+    final it = item(product()).copyWith(taken: true);
+    final back = CartItem.fromJson(
+        Map<String, dynamic>.from(jsonDecode(jsonEncode(it.toJson())) as Map));
+    expect(back.taken, isTrue);
+    final old = Map<String, dynamic>.from(it.toJson())..remove('taken');
+    expect(CartItem.fromJson(old).taken, isFalse);
   });
 }

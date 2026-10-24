@@ -416,6 +416,18 @@ class CartNotifier extends Notifier<List<CartItem>> {
 
   void clear() => _set(const []);
 
+  void toggleTaken(String id) =>
+      _update(id, (i) => i.copyWith(taken: !i.taken));
+
+  void clearTaken() => _set([for (final i in state) i.copyWith(taken: false)]);
+
+  /// La riga si comprerà in un altro negozio: si usa il suo prezzo.
+  /// Il totale dell'etichetta della bilancia non vale più, il peso sì.
+  void moveTo(String id, PriceQuote quote) => _update(
+    id,
+    (i) => i.copyWith(quote: quote, labelTotal: null, pricePerKgOverride: null),
+  );
+
   void _update(String id, CartItem Function(CartItem) f) {
     final idx = state.indexWhere((i) => i.id == id);
     if (idx < 0) return;
@@ -426,6 +438,27 @@ class CartNotifier extends Notifier<List<CartItem>> {
 final cartProvider = NotifierProvider<CartNotifier, List<CartItem>>(
   CartNotifier.new,
 );
+
+/// Filtro della lista per negozio (id di [PriceStore], null = tutti).
+class CartFilterNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+  void set(String? v) => state = v;
+}
+
+final cartFilterProvider = NotifierProvider<CartFilterNotifier, String?>(
+  CartFilterNotifier.new,
+);
+
+/// Nome del negozio da cui viene il prezzo di una riga.
+String storeLabelOf(PriceQuote q, List<PriceStore> stores) {
+  final id = PriceStore.idOfQuote(q);
+  final s = stores.where((s) => s.id == id).firstOrNull;
+  if (s != null) return s.shortLabel;
+  return q.storeId == null
+      ? '${q.chain.label} online'
+      : '${q.chain.label} ${q.storeId}';
+}
 
 final cartTotalsProvider = Provider<CartTotals>(
   (ref) => cartTotals(ref.watch(cartProvider)),
@@ -456,6 +489,50 @@ class StoreQuotesNotifier extends Notifier<Map<String, StoreQuote>> {
       ...state,
       for (final e in byStore.entries) storeQuoteKey(e.key, itemId): e.value,
     };
+  }
+
+  /// Sposta la riga nel negozio [s] usando il prezzo letto lì; il prezzo
+  /// del negozio di prima resta disponibile per il confronto.
+  void moveItem(CartItem item, PriceStore s) {
+    final q = quoteIn(s, item, state);
+    if (q == null) return;
+    final old = PriceStore.idOfQuote(item.quote);
+    state = {
+      ...state,
+      storeQuoteKey(old, item.id): QuoteFound(
+        LookupResult(item.product, item.quote),
+      ),
+    };
+    ref.read(cartProvider.notifier).moveTo(item.id, q);
+  }
+
+  /// Sposta ogni riga nel negozio selezionato dove costa meno (fra quelli con
+  /// un prezzo: per Lidl/MD solo gli abbinamenti confermati).
+  int moveAllToCheapest() {
+    var moved = 0;
+    final stores = ref.read(selectedStoresProvider);
+    for (final item in ref.read(cartProvider)) {
+      if (item.product.productId <= 0) continue;
+      PriceStore? best;
+      var bestNet = lineTotals(item).net;
+      for (final s in stores) {
+        final q = quoteIn(s, item, state);
+        if (q == null || q == item.quote) continue;
+        final net = lineTotals(item, quote: q).net;
+        if (net < bestNet - 0.001) {
+          best = s;
+          bestNet = net;
+        }
+      }
+      if (best != null) {
+        moveItem(
+          ref.read(cartProvider).firstWhere((i) => i.id == item.id),
+          best,
+        );
+        moved++;
+      }
+    }
+    return moved;
   }
 
   /// L'utente conferma che [p] (Everli) è lo stesso prodotto della riga.

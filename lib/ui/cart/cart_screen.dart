@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/api_exceptions.dart';
+import '../../domain/cart_item.dart';
+import '../../domain/cart_math.dart';
 import '../../domain/chain.dart';
+import '../../domain/price_store.dart';
 import '../feedback.dart';
 import '../providers.dart';
 import '../widgets/format.dart';
@@ -111,6 +114,20 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     if (code != null) await _submitCode(code);
   }
 
+  void _cheapest() {
+    final n = ref.read(storeQuotesProvider.notifier).moveAllToCheapest();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          n == 0
+              ? 'Ogni articolo è già nel negozio più conveniente '
+                    '(fra quelli con un prezzo).'
+              : '$n articoli spostati nel negozio più conveniente.',
+        ),
+      ),
+    );
+  }
+
   Future<void> _clear() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -154,11 +171,21 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               'manual' => _manualEntry(),
               'simulate' => _simulate(),
               'clear' => _clear(),
+              'cheapest' => _cheapest(),
+              'untick' => ref.read(cartProvider.notifier).clearTaken(),
               _ => null,
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'manual', child: Text('Inserisci EAN')),
               PopupMenuItem(value: 'simulate', child: Text('Simula scansione')),
+              PopupMenuItem(
+                value: 'cheapest',
+                child: Text('Assegna ogni articolo al negozio più conveniente'),
+              ),
+              PopupMenuItem(
+                value: 'untick',
+                child: Text('Togli tutte le spunte'),
+              ),
               PopupMenuItem(value: 'clear', child: Text('Svuota carrello')),
             ],
           ),
@@ -166,18 +193,105 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       ),
       body: items.isEmpty
           ? _Empty(onManual: _manualEntry, onSimulate: _simulate)
-          : ListView.separated(
-              padding: const EdgeInsets.only(bottom: 96),
-              itemCount: items.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
-              itemBuilder: (_, i) => CartTile(items[i]),
-            ),
+          : const _FilteredList(),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/scanner'),
         icon: const Icon(Icons.qr_code_scanner),
         label: const Text('Scansiona'),
       ),
       bottomNavigationBar: items.isEmpty ? null : const _SummaryBar(),
+    );
+  }
+}
+
+/// Lista filtrata per negozio: in ogni negozio vedi cosa comprare lì.
+/// Gli articoli già presi vanno in fondo.
+class _FilteredList extends ConsumerWidget {
+  const _FilteredList();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final items = ref.watch(cartProvider);
+    final stores = ref.watch(selectedStoresProvider);
+    final filter = ref.watch(cartFilterProvider);
+    final theme = Theme.of(context);
+
+    String storeOf(CartItem i) => PriceStore.idOfQuote(i.quote);
+    final counts = <String, int>{};
+    for (final i in items) {
+      counts[storeOf(i)] = (counts[storeOf(i)] ?? 0) + 1;
+    }
+    // Negozi selezionati più eventuali negozi di righe già in lista.
+    final chips = <(String, String)>[
+      for (final s in stores) (s.id, s.shortLabel),
+      for (final i in items)
+        if (!stores.any((s) => s.id == storeOf(i)))
+          (storeOf(i), storeLabelOf(i.quote, stores)),
+    ];
+    final seen = <String>{};
+    chips.retainWhere((c) => seen.add(c.$1));
+
+    final visible = [
+      for (final i in items)
+        if (filter == null || storeOf(i) == filter) i,
+    ]..sort((a, b) => (a.taken ? 1 : 0) - (b.taken ? 1 : 0));
+    final taken = visible.where((i) => i.taken).length;
+    final todo = cartTotals(visible.where((i) => !i.taken)).total;
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 52,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: ChoiceChip(
+                  label: Text('Tutti (${items.length})'),
+                  selected: filter == null,
+                  onSelected: (_) =>
+                      ref.read(cartFilterProvider.notifier).set(null),
+                ),
+              ),
+              for (final (id, label) in chips)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: ChoiceChip(
+                    avatar: const Icon(Icons.place, size: 16),
+                    label: Text('$label (${counts[id] ?? 0})'),
+                    selected: filter == id,
+                    onSelected: (on) => ref
+                        .read(cartFilterProvider.notifier)
+                        .set(on ? id : null),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Container(
+          width: double.infinity,
+          color: theme.colorScheme.surfaceContainerHighest,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: Text(
+            visible.isEmpty
+                ? 'Niente da comprare qui.'
+                : 'Presi $taken/${visible.length}'
+                      '${taken < visible.length ? ' · da prendere ${eur(todo)}' : ' · tutto preso!'}',
+            style: theme.textTheme.bodySmall,
+          ),
+        ),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.only(bottom: 96),
+            itemCount: visible.length,
+            separatorBuilder: (_, _) => const Divider(height: 1),
+            itemBuilder: (_, i) =>
+                CartTile(visible[i], key: ValueKey(visible[i].id)),
+          ),
+        ),
+      ],
     );
   }
 }

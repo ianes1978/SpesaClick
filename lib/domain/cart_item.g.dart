@@ -15,6 +15,7 @@ _CartItem _$CartItemFromJson(Map<String, dynamic> json) => _CartItem(
   labelTotal: (json['labelTotal'] as num?)?.toDouble(),
   pricePerKgOverride: (json['pricePerKgOverride'] as num?)?.toDouble(),
   discountPercent: (json['discountPercent'] as num?)?.toInt() ?? 0,
+  taken: json['taken'] as bool? ?? false,
   addedAt: DateTime.parse(json['addedAt'] as String),
 );
 
@@ -27,5 +28,6 @@ Map<String, dynamic> _$CartItemToJson(_CartItem instance) => <String, dynamic>{
   'labelTotal': ?instance.labelTotal,
   'pricePerKgOverride': ?instance.pricePerKgOverride,
   'discountPercent': instance.discountPercent,
+  'taken': instance.taken,
   'addedAt': instance.addedAt.toIso8601String(),
 };

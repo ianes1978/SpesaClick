@@ -54,11 +54,19 @@ class CartTile extends ConsumerWidget {
       child: InkWell(
         onTap: () => showCompareSheet(context, item),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+          padding: const EdgeInsets.fromLTRB(0, 8, 8, 8),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ProductImage(p.thumbUrl),
+              Checkbox(
+                value: item.taken,
+                onChanged: (_) => cart.toggleTaken(item.id),
+                visualDensity: VisualDensity.compact,
+              ),
+              Opacity(
+                opacity: item.taken ? 0.5 : 1,
+                child: ProductImage(p.thumbUrl),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -66,7 +74,12 @@ class CartTile extends ConsumerWidget {
                   children: [
                     Text(
                       p.name,
-                      style: theme.textTheme.titleSmall,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        decoration: item.taken
+                            ? TextDecoration.lineThrough
+                            : null,
+                        color: item.taken ? theme.colorScheme.outline : null,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -77,6 +90,23 @@ class CartTile extends ConsumerWidget {
                       spacing: 6,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.place,
+                              size: 14,
+                              color: theme.colorScheme.primary,
+                            ),
+                            Text(
+                              storeLabelOf(q, stores),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
                         SourceBadge(q),
                         Text(unitPrice, style: theme.textTheme.bodySmall),
                         if (q.isPromo && !item.isVariableWeight)

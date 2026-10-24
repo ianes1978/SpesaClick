@@ -20,6 +20,8 @@ subito il prezzo a **DupliClick** (Poli, prezzo del punto vendita scelto) o a
 | **Riepilogo** | Totale, pezzi, risparmio (bollini + promo), totale nell'altro negozio e differenza. |
 | **Negozi nel confronto** | In **Negozi** (in alto nel carrello) scegli una lista di negozi fra le catene disponibili: listino online DupliClick, i punti vendita Poli di Trento, listino online Click&Coop. Una catena senza negozi selezionati resta fuori dal confronto. L'ordine conta: il primo è quello proposto per primo. |
 | **Scansione multi-negozio** | Il codice viene cercato in tutti i negozi selezionati; se il prodotto c'è in più negozi l'app chiede quale prezzo usare (si può disattivare: allora vale il primo della lista). Ogni riga mostra il prezzo negli altri negozi e il riepilogo il totale in ognuno, con il più conveniente evidenziato. |
+| **Lista per negozio** | Ogni riga ha il negozio dove comprarla (📍). In alto filtri la lista per negozio: entrando in un negozio vedi solo cosa prendere lì. "Compra qui" nella scheda della riga la sposta in un altro negozio; dal menu "Assegna ogni articolo al negozio più conveniente" lo fa per tutte. |
+| **Spunta "preso"** | Casella su ogni riga: gli articoli presi vanno in fondo e la barra mostra "presi 3/7 · da prendere X €". "Togli tutte le spunte" dal menu. |
 | **Equivalenti Lidl/MD** | Tocca una riga del carrello: prezzi per EAN negli altri negozi e prodotti equivalenti Lidl/MD da Everli, con "È lo stesso prodotto" per abbinarli. |
 | **Ricerca multi-negozio** | Il catalogo cerca in tutti i negozi selezionati e raggruppa per EAN; i filtri in alto mostrano un negozio alla volta. |
 | **Cambio negozio e confronto** | Selettore del punto vendita in alto e confronto IperPoli ↔ Gardolo (vedi avvertenze sotto). |

@@ -35,6 +35,7 @@ String cartToCsv(List<CartItem> items) => toCsv(
     'totale',
     'fonte',
     'letto_il',
+    'preso',
   ],
   items.map(
     (i) => [
@@ -51,6 +52,7 @@ String cartToCsv(List<CartItem> items) => toCsv(
       lineTotals(i).net,
       i.quote.source.name,
       i.quote.readAt.toIso8601String(),
+      i.taken ? 'si' : 'no',
     ],
   ),
 );
